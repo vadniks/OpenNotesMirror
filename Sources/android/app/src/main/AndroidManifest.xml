@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Created by VadNiks on Jul 31 2022
+    Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+
+    This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
+    No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
+    without author's written permission, are strongly prohibited.
+
+    Source codes are opened only for review.
+-->
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.sout.android.notes">
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <application
+        android:label="OpenNotes"
+        android:name="com.sout.android.notes.mvp.model.core.App"
+        android:icon="@drawable/icon_notes">
+
+        <activity
+            android:name="com.sout.android.notes.mvp.view.Activity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"/>
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2"/>
+
+       <receiver
+           android:name="com.sout.android.notes.mvp.model.reminders.BroadcastReceiver"
+           android:exported="false">
+
+           <intent-filter>
+               <action android:name="com.sout.android.notes_next_gen.ACTION_DISMISS"/>
+               <action android:name="com.sout.android.notes_next_gen.ACTION_TIMED"/>
+               <action android:name="com.sout.android.notes_next_gen.ACTION_SWAP_OFF"/>
+               <action android:name="com.sout.android.notes_next_gen.ACTION_SCHEDULED"/>
+               <action android:name="android.intent.action.BOOT_COMPLETED"/>
+           </intent-filter>
+       </receiver>
+
+        <receiver
+            android:name="com.sout.android.notes.mvp.model.reminders.WidgetProvider"
+            android:exported="false">
+
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_ENABLED"/>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <action android:name="android.appwidget.action.APPWIDGET_DISABLED"/>
+                <action android:name="android.appwidget.action.APPWIDGET_DELETED"/>
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget"/>
+        </receiver>
+    </application>
+</manifest>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Created by VadNiks on Aug 21 2022
+    Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+
+    This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
+    No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
+    without author's written permission, are strongly prohibited.
+
+    Source codes are opened only for review.
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="80dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="80dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="86400000"
+    android:previewImage="@drawable/widget"
+    android:previewLayout="@layout/widget"
+    android:initialLayout="@layout/widget"
+    android:configure="com.sout.android.notes.mvp.view.Activity"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable">
+</appwidget-provider>
