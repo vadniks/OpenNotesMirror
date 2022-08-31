@@ -14,6 +14,8 @@ distribution, redistribution, modification of this code/software - this software
 
 There are no analytics, advertisements or payments in this application.
 
+Download is available at https://play.google.com/store/apps/details?id=com.sout.android.notes
+
 # Description
 
 This application lets saving and editing text notes to keep plain text information.
