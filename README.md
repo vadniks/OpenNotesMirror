@@ -1,5 +1,12 @@
 # OpenNotesMirror - Public mirror for the OpenNotes android application project
 
+   ____                   _   __      __           
+  / __ \____  ___  ____  / | / /___  / /____  _____
+ / / / / __ \/ _ \/ __ \/  |/ / __ \/ __/ _ \/ ___/
+/ /_/ / /_/ /  __/ / / / /|  / /_/ / /_/  __(__  ) 
+\____/ .___/\___/_/ /_/_/ |_/\____/\__/\___/____/  
+    /_/
+
 Open-source non-commercial software without any licence which would let usage (including commercial),
 distribution, redistribution, modification of this code/software - this software is not free (yet).
 
