@@ -18,14 +18,14 @@ import 'ReminderType.dart';
 
 @sealed
 class ReminderManager {
-  static const _CREATE_OR_UPDATE_REMINDER_METHOD = "b.5";
-  static const _IS_REMINDER_SET_METHOD = 'b.6';
-  static const _CANCEL_REMINDER_METHOD = 'b.7';
-  static const _LAUNCH_EDIT_PAGE = 'a.1';
-  static const _GET_TIMED_DETAILS = 'b.8';
-  static const _CONFIGURE_WIDGET_METHOD = 'a.2';
-  static const _SET_WIDGET_METHOD = 'b.9';
-  static const _NOTIFY_CANT_POST_NOTIFICATIONS_METHOD = 'a.5';
+  static const _CREATE_OR_UPDATE_REMINDER_METHOD = 'createOrUpdateReminder';
+  static const _IS_REMINDER_SET_METHOD = 'isReminderSet';
+  static const _CANCEL_REMINDER_METHOD = 'cancelReminder';
+  static const _GET_REMINDER_DETAILS = 'getReminderDetails';
+  static const _CONFIGURE_WIDGET_METHOD = 'configureWidget';
+  static const _SET_WIDGET_METHOD = 'setWidget';
+  static const _NOTIFY_CANT_POST_NOTIFICATIONS_METHOD = 'notifyCantPostNotifications';
+  static const _CAN_POST_NOTIFICATIONS_METHOD = 'canPostNotifications';
   static bool _initialized = false;
   final Kernel _kernel;
 
@@ -37,9 +37,6 @@ class ReminderManager {
 
   Future<bool> _handleKotlinMethod(MethodCall call) async {
     switch (call.method) {
-      case _LAUNCH_EDIT_PAGE:
-        _kernel.callMainPresenter((presenter) => presenter.launchEditPage(Note.fromMap(call.arguments)));
-        return true;
       case _CONFIGURE_WIDGET_METHOD:
         _kernel.callMainPresenter((presenter) => presenter.configureWidget(call.arguments));
         return true;
@@ -64,17 +61,20 @@ class ReminderManager {
   }
 
   Future<bool> isReminderSet(int id) async =>
-      await _kernel.interop.callKotlinMethod(_IS_REMINDER_SET_METHOD, id);
+    await _kernel.interop.callKotlinMethod(_IS_REMINDER_SET_METHOD, id);
 
   Future<void> cancelReminder(int id, ReminderType type, bool cancelInDB) async =>
-      await _kernel.interop.callKotlinMethod(
-        _CANCEL_REMINDER_METHOD,
-        <Object>[id, type.value, cancelInDB]
-      );
+    await _kernel.interop.callKotlinMethod(
+      _CANCEL_REMINDER_METHOD,
+      <Object>[id, type.value, cancelInDB]
+    );
 
-  Future<String?> getTimedReminderDetails(int? id) async =>
-      await _kernel.interop.callKotlinMethod(_GET_TIMED_DETAILS, id);
+  Future<String?> getReminderDetails(int? id) async =>
+    await _kernel.interop.callKotlinMethod(_GET_REMINDER_DETAILS, id);
 
   Future<void> setWidget(int? noteId, int widgetId) async =>
-      await _kernel.interop.callKotlinMethod(_SET_WIDGET_METHOD, [noteId, widgetId]);
+    await _kernel.interop.callKotlinMethod(_SET_WIDGET_METHOD, [noteId, widgetId]);
+
+  Future<bool> canPostNotifications() async =>
+    await _kernel.interop.callKotlinMethod(_CAN_POST_NOTIFICATIONS_METHOD, null);
 }

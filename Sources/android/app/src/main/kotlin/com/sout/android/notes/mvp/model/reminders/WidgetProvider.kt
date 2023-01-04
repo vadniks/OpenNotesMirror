@@ -11,6 +11,7 @@
 
 package com.sout.android.notes.mvp.model.reminders
 
+import android.annotation.SuppressLint
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
@@ -18,12 +19,12 @@ import android.content.Intent
 import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import com.sout.android.notes.mvp.model.core.Kernel
-import com.sout.android.notes.mvp.model.reminders.IReceivable
 import kotlinx.coroutines.runBlocking
 
 class WidgetProvider @UiThread constructor() : AppWidgetProvider(), IReceivable {
     override lateinit var kernel: Kernel
 
+    @SuppressLint("UnsafeProtectedBroadcastReceiver")
     @UiThread
     override fun onReceive(context: Context, intent: Intent) = processAsync(context) {
         super.onReceive(context, intent)

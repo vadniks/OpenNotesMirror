@@ -13,14 +13,15 @@ package com.sout.android.notes.mvp.model.db
 
 import androidx.annotation.WorkerThread
 import androidx.room.*
+import androidx.sqlite.db.SupportSQLiteQuery
 import com.sout.android.notes.mvp.model.db.*
 
 @WorkerThread
 @Dao
 interface NoteDao {
 
-    @Query("select * from $DB_NAME where $ID between :from and :from + :amount order by $ID asc limit :amount")
-    suspend fun getNotesLimited(from: Int, amount: Int): List<Note>
+    @RawQuery
+    suspend fun getNotes(query: SupportSQLiteQuery): List<Note>
 
     @Query("select * from $DB_NAME where $ID = :$ID limit 1")
     suspend fun getNoteById(id: Int): Note?
@@ -37,8 +38,8 @@ interface NoteDao {
     @Query("select * from $DB_NAME where $REMINDER_EXTRA is not null order by $ID asc")
     suspend fun getNotesWithReminders(): List<Note>
 
-    @Query("select * from $DB_NAME where instr(lower($TITLE), lower(:$TITLE)) > 0 collate nocase order by $ID asc")
-    suspend fun searchByTitle(title: String): List<Note>
+    @Query("delete from $DB_NAME where $ID = :$ID")
+    suspend fun deleteById(id: Int): Int
 
     @Insert
     suspend fun insertNote(note: Note): Long

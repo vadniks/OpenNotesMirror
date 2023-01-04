@@ -8,7 +8,7 @@
 /// Source codes are opened only for review.
 
 import 'package:meta/meta.dart';
-import 'Presenter.dart';
+import 'Presenters.dart';
 import '../view/AbsStatefulWidget.dart';
 import '../view/DrawPage.dart';
 import '../view/EditPage.dart';
@@ -19,12 +19,10 @@ import '../view/Screen.dart';
 class ViewLocator {
   ViewLocator._internal() { throw Exception(); }
 
-  static AbsPage createView(Object parameter, Presenter which) {
-    switch (which) {
-      case Presenter.SCREEN: return Screen(parameter);
-      case Presenter.MAIN: return MainPage(parameter);
-      case Presenter.EDIT: return EditPage(parameter);
-      case Presenter.DRAW: return DrawPage(parameter);
-    }
-  }
+  static AbsPage createView(Object parameter, Presenters which) { switch (which) {
+    case Presenters.SCREEN: return Screen(parameter);
+    case Presenters.MAIN: return MainPage(parameter);
+    case Presenters.EDIT: return EditPage(parameter);
+    case Presenters.DRAW: return DrawPage(parameter);
+  } }
 }

@@ -11,10 +11,13 @@
 
 package com.sout.android.notes.mvp.model.db
 
+import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
+import androidx.annotation.AnyThread
 import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
+import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sout.android.notes.NUM_UNDEF
 import com.sout.android.notes.NUM_UNDEF_L
@@ -30,6 +33,7 @@ import java.io.File
 class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSingleton() {
     private var database = CompletableDeferred<NoteDatabase>()
     private var delegate = CompletableDeferred<NoteDao>()
+    private var sortMode: Pair<SortMode, Boolean>? = null
 
     init {
         kernel.interop.observeDartMethodHandling(true) { handleDartMethod(it.first, it.second) }
@@ -105,15 +109,37 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
             result.success(searchByTitle(call.arguments as String).map(fun(it) = it.toMap()))
             true
         }
+        SET_SORT_MODE_METHOD -> {
+            with(kernel.databaseManager) {
+                val mode = call.arguments as List<Any>
+                setSortMode(createSortMode(mode[0] as Int)!!, mode[1] as Boolean)
+            }
+            result.success(null)
+            true
+        }
+        GET_SORT_MODE_METHOD -> {
+            result.success(sortMode?.run { listOf(first.mode, second) } ?: listOf(0, false))
+            true
+        }
         else -> false
     }
 
-    suspend fun fetchNotes(from: Int, amount: Int): List<Note> = delegate.await().getNotesLimited(from, amount)
+    private val orderBy get() = "order by ${sortMode!!.first.column} ${if (sortMode!!.second) "desc" else "asc"}"
+
+    private suspend fun fetchNotes(from: Int, amount: Int): List<Note> {
+        if (sortMode == null) { sortMode = getSortMode() ?: (SortMode.ID to false) }
+
+        return delegate.await().getNotes(SimpleSQLiteQuery(
+            "select * from $DB_NAME $orderBy limit ? offset ?",
+            arrayOf(amount, from)
+        ))
+    }
 
     suspend fun getNoteById(id: Int) = delegate.await().getNoteById(id)
 
     suspend fun isReminderSet(id: Int): Boolean = delegate.await().getReminderExtraById(id) != null
 
+    @Deprecated("unused")
     suspend fun noteExists(id: Int) = delegate.await().exists(id)
 
     suspend fun setReminderExtra(id: Int, extra: AbsReminderExtra?) {
@@ -125,7 +151,10 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
 
     suspend fun getNotesWithReminders() = delegate.await().getNotesWithReminders()
 
-    suspend fun searchByTitle(title: String) = delegate.await().searchByTitle(title)
+    private suspend fun searchByTitle(title: String) = delegate.await().getNotes(SimpleSQLiteQuery(
+        "select * from $DB_NAME where instr(lower($TITLE), lower(?)) > 0 collate nocase $orderBy",
+        arrayOf(title)
+    ))
 
     suspend fun insertNote(note: Note): Int {
         var id = 0
@@ -148,19 +177,43 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
         return rows
     }
 
+    suspend fun deleteMultiple(ids: List<Int>) = ids.forEach {
+        if (delegate.await().deleteById(it) != 1) throw IllegalStateException()
+    }
+
     private fun notifyDBModified(note: Note?, mode: DBModificationMode) =
         kernel.interop.callDartMethod(ON_DB_MODIFIED_METHOD, listOf(note?.toMap(), mode.value))
 
     suspend fun terminate() {
-        if (!database.isCompleted || database.await().isOpen) return
+        if (!database.isCompleted || !database.await().isOpen) return
         database.await().close()
 
         database = CompletableDeferred()
         delegate = CompletableDeferred()
     }
 
+    @SuppressLint("ApplySharedPref")
+    @AnyThread
+    private fun setSortMode(mode: SortMode, order: Boolean) {
+        sortMode = mode to order
+        kernel.sharedPrefs.edit().putString(SORT_MODE_PREF, "${mode.mode}$order").commit()
+    }
+
+    @AnyThread
+    private fun createSortMode(mode: Int) = SortMode.values().find { it.mode == mode }
+
+    @AnyThread
+    private fun getSortMode() = kernel.sharedPrefs.getString(SORT_MODE_PREF, "0false")?.run {
+        createSortMode(elementAt(0).digitToInt())!! to substring(1).toBoolean()
+    }
+
     enum class DBModificationMode(val value: Int)
     { INSERT(0), UPDATE(1), DELETE(2) }
+
+    enum class SortMode(val mode: Int, val column: String) {
+        ID(0, com.sout.android.notes.mvp.model.db.ID),
+        TITLE(1, com.sout.android.notes.mvp.model.db.TITLE)
+    }
 
     private inner class Migration : androidx.room.migration.Migration(OLD_DB_VERSION, DB_VERSION) {
 
@@ -204,14 +257,17 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
     }
 
     companion object {
-        private const val FETCH_NOTES_METHOD = "b.0";
-        private const val INSERT_NOTE_METHOD = "b.1"
-        private const val UPDATE_NOTE_METHOD = "b.2"
-        private const val DELETE_NOTE_METHOD = "b.3"
-        private const val ON_DB_MODIFIED_METHOD = "a.0"
-        private const val GET_NOTE_BY_ID_METHOD = "b.4"
-        private const val SEARCH_BY_TITLE_METHOD = "b.10"
-        private const val NOTIFY_BACKED_UP_DB_METHOD = "a.4"
+        private const val FETCH_NOTES_METHOD = "fetchNotes"
+        private const val INSERT_NOTE_METHOD = "insertNote"
+        private const val UPDATE_NOTE_METHOD = "updateNote"
+        private const val DELETE_NOTE_METHOD = "deleteNote"
+        private const val ON_DB_MODIFIED_METHOD = "onDbModified"
+        private const val GET_NOTE_BY_ID_METHOD = "getNoteById"
+        private const val SEARCH_BY_TITLE_METHOD = "searchByTitle"
+        private const val NOTIFY_BACKED_UP_DB_METHOD = "notifyBackedUpDb"
+        private const val SET_SORT_MODE_METHOD = "setSortMode"
+        private const val GET_SORT_MODE_METHOD = "getSortMode"
         private const val BACKUP_NOTATION = ".backup"
+        private const val SORT_MODE_PREF = "sortMode"
     }
 }

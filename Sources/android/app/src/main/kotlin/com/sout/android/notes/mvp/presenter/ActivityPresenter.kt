@@ -15,9 +15,13 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import androidx.annotation.AnyThread
 import androidx.annotation.UiThread
+import com.sout.android.notes.mvp.model.core.Interop
 import com.sout.android.notes.mvp.model.core.Kernel
+import com.sout.android.notes.mvp.model.db.Note
+import com.sout.android.notes.mvp.model.db.toMap
 import com.sout.android.notes.mvp.view.Activity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -29,14 +33,14 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
     var isActivityRunning = true; private set
     private val activity get() = activityGetter()
     private var onPermissionRequestResponded: ((BooleanArray) -> Unit)? = null
+    private var currentNote: Note? = null
 
-    private val dartMethodHandler: suspend (Pair<MethodCall, MethodChannel.Result>) -> Boolean = {
-            it -> handleDartMethod(it.first, it.second)
-    }
+    private val dartMethodHandler: suspend (Pair<MethodCall, MethodChannel.Result>) -> Boolean
+    = { it -> handleDartMethod(it.first, it.second) }
 
     init {
         inject(activity)
-        kernel.activityPresenter.complete(this)
+        kernel.onActivityPresenterInit(this)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -51,12 +55,39 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
             result.success(null)
             true
         }
+        SAVE_STATE_METHOD -> {
+            currentNote = Note.fromMap(call.arguments as Map<String, Any?>)
+            result.success(null)
+            true
+        }
+        RESET_STATE_METHOD -> {
+            currentNote = null
+            result.success(null)
+            true
+        }
+        DELETE_SELECTED_METHOD -> {
+            kernel.launchInBackground { kernel.databaseManager.deleteMultiple(call.arguments as List<Int>) }
+            result.success(null)
+            true
+        }
         else -> false
     }
     
     fun configureFlutterEngine(flutterEngine: FlutterEngine, intent: Intent) {
         kernel.interop.configureFlutterEngine(flutterEngine)
         onNewIntent(intent)
+    }
+
+    fun onSaveInstanceState(outState: Bundle) = outState.putSerializable(CURRENT_NOTE, currentNote)
+
+    @Suppress("DEPRECATION")
+    fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        val note = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            savedInstanceState.getSerializable(CURRENT_NOTE, Note::class.java)
+        else
+            savedInstanceState.getSerializable(CURRENT_NOTE)) as Note?
+
+        if (note != null) kernel.interop.callDartMethod(Interop.LAUNCH_EDIT_PAGE_METHOD, note.toMap())
     }
 
     fun onNewIntent(intent: Intent) {
@@ -104,11 +135,10 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
         putExtra(Intent.EXTRA_TEXT, text)
         type = SEND_MIME
     }, null).apply {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
-            putExtra(
-                Intent.EXTRA_EXCLUDE_COMPONENTS,
-                arrayListOf(ComponentName(kernel.context, Activity::class.java))
-            )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) putExtra(
+            Intent.EXTRA_EXCLUDE_COMPONENTS,
+            arrayListOf(ComponentName(kernel.context, Activity::class.java))
+        )
     })
 
     fun requestPermission(permissions: Array<String>, callback: (BooleanArray) -> Unit) {
@@ -121,19 +151,22 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
     }
 
     fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
+        @Suppress("UNUSED_PARAMETER") requestCode: Int,
+        @Suppress("UNUSED_PARAMETER") permissions: Array<String>,
         grantResults: IntArray
     ) {
-        onPermissionRequestResponded!!.invoke(
-            grantResults.map { it == PackageManager.PERMISSION_GRANTED }.toBooleanArray())
+        onPermissionRequestResponded!!.invoke(grantResults.map { it == PackageManager.PERMISSION_GRANTED }.toBooleanArray())
         onPermissionRequestResponded = null
     }
 
     companion object {
-        private const val SEND_METHOD = "b.11"
+        private const val SEND_METHOD = "send"
+        private const val HANDLE_SEND_METHOD = "handleSend"
+        private const val SAVE_STATE_METHOD = "saveState"
+        private const val RESET_STATE_METHOD = "resetState"
+        private const val DELETE_SELECTED_METHOD = "deleteSelected"
+        private const val CURRENT_NOTE = "currentNote"
         private const val SEND_MIME = "text/plain"
-        private const val HANDLE_SEND_METHOD = "a.3"
         private const val ERROR = "<ERROR>"
         private const val EMPTY = ""
         private const val REQUEST_PERMISSIONS_CODE = 509154

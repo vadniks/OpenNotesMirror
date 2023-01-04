@@ -29,18 +29,15 @@ abstract class NoteDatabase : RoomDatabase() {
     suspend fun getDao() = dao
 
     companion object {
-        private var database: NoteDatabase? = null
 
         @Suppress("RedundantSuspendModifier")
-        suspend fun getDatabase(
+        suspend fun getDatabase( // The only instance is saved in the DatabaseManager, it gets dropped and replaced with the new one when re-initializing, so it's still a singleton
             context: Context,
             migration: Migration
-        ): NoteDatabase =
-            database ?: Room
-                .databaseBuilder(context, NoteDatabase::class.java, DB_NAME)
-                .addMigrations(migration)
-                .fallbackToDestructiveMigration()
-                .build()
-                .also { database = it }
+        ): NoteDatabase = Room
+            .databaseBuilder(context, NoteDatabase::class.java, DB_NAME)
+            .addMigrations(migration)
+            .fallbackToDestructiveMigration()
+            .build()
     }
 }

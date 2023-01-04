@@ -51,5 +51,6 @@ class Interop @UiThread constructor(private val kernel: Kernel) : AbsSingleton()
 
     companion object {
         private const val CHANNEL_NAME = "$PACKAGE/channel"
+        const val LAUNCH_EDIT_PAGE_METHOD = "launchEditPage"
     }
 }

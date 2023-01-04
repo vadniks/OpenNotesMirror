@@ -17,7 +17,7 @@ val localPropertiesFile = File(rootProject.projectDir, "local.properties")
 val properties = Properties()
 
 assert(localPropertiesFile.exists())
-localPropertiesFile.reader().apply {  properties.load(this) }
+localPropertiesFile.reader().apply { properties.load(this) }
 
 val flutterSdkPath: String? = properties.getProperty("flutter.sdk")
 assert(flutterSdkPath != null, fun() = "flutter.sdk not set in local.properties")

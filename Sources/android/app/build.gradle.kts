@@ -1,4 +1,4 @@
- /**
+/**
  * Created by VadNiks on Jul 31 2022
  * Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
  *
@@ -42,20 +42,22 @@ android {
 
     signingConfigs {
         register("release") {
+            val jks = File(projectDir.parent, "").readLines()
+
             storeFile = file("")
-            storePassword = ""
-            keyAlias = ""
-            keyPassword = ""
+            storePassword = jks[0]
+            keyAlias = jks[1]
+            keyPassword = jks[2]
         }
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "11"
         @Suppress("SuspiciousCollectionReassignment")
         freeCompilerArgs += "-Xjvm-default=all"
     }
@@ -86,7 +88,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
 
             isMinifyEnabled = true
             isShrinkResources = true
@@ -99,16 +101,16 @@ android {
         }
     }
     buildToolsVersion = "30.0.3"
+    namespace = "com.sout.android.notes"
 }
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.10")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
-
-    implementation("androidx.core:core-ktx:1.8.0")
-
+    implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.room:room-runtime:2.4.3")
+    implementation("androidx.room:room-ktx:2.4.3")
+
     annotationProcessor("androidx.room:room-compiler:2.4.3")
     kapt("androidx.room:room-compiler:2.4.3")
-    implementation("androidx.room:room-ktx:2.4.3")
 }

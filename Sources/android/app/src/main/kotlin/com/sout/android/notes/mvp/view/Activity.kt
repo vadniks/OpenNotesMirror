@@ -30,6 +30,16 @@ class Activity: FlutterActivity() {
         presenter.configureFlutterEngine(flutterEngine, intent)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        presenter.onSaveInstanceState(outState)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        presenter.onRestoreInstanceState(savedInstanceState)
+        super.onRestoreInstanceState(savedInstanceState)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         presenter.onNewIntent(intent)

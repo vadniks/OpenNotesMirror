@@ -9,7 +9,7 @@
 
 // ignore_for_file: constant_identifier_names
 
-enum Presenter {
+enum Presenters {
   SCREEN,
   MAIN,
   EDIT,

@@ -24,6 +24,7 @@ import com.sout.android.notes.NUM_ZERO
 import com.sout.android.notes.PACKAGE
 import com.sout.android.notes.mvp.model.Observable
 import com.sout.android.notes.mvp.model.core.AbsSingleton
+import com.sout.android.notes.mvp.model.core.Interop
 import com.sout.android.notes.mvp.model.core.Kernel
 import com.sout.android.notes.mvp.model.db.AbsReminderExtra
 import com.sout.android.notes.mvp.model.db.Note
@@ -34,7 +35,7 @@ import kotlin.math.absoluteValue
 
 @WorkerThread
 class ReminderManager @UiThread constructor(private val kernel: Kernel) : AbsSingleton() {
-    val notificationManager = NotificationManager(kernel)
+    private val notificationManager = NotificationManager(kernel)
     private val broadcasts = Observable<Intent, Unit>()
     val widgetManager = WidgetManager(kernel)
     private val handlers = Observable<Pair<MethodCall, MethodChannel.Result>, Boolean>()
@@ -94,6 +95,10 @@ class ReminderManager @UiThread constructor(private val kernel: Kernel) : AbsSin
             result.success(null)
             true
         }
+        GET_REMINDER_DETAILS_METHOD -> {
+            result.success(notificationManager.getTimedOrScheduledDetails(call.arguments as Int?))
+            true
+        }
         else -> {
             var res = handlers.size == 0
             handlers.notify(call to result) { res = res or it }
@@ -121,7 +126,7 @@ class ReminderManager @UiThread constructor(private val kernel: Kernel) : AbsSin
         }
 
         kernel.interop.callDartMethod(
-            LAUNCH_EDIT_PAGE_METHOD,
+            Interop.LAUNCH_EDIT_PAGE_METHOD,
             kernel.databaseManager.getNoteById(
                 getNoteId(intent) ?:
                 return@launchInBackground
@@ -143,7 +148,7 @@ class ReminderManager @UiThread constructor(private val kernel: Kernel) : AbsSin
         makeId(),
         kernel.createActivityOpenIntent().apply {
             assert(setter == null && id != null && type != null
-                    || setter != null && id == null && type == null)
+                || setter != null && id == null && type == null)
 
             if (setter != null) {
                 setter(this)
@@ -194,10 +199,10 @@ class ReminderManager @UiThread constructor(private val kernel: Kernel) : AbsSin
     }
 
     companion object {
-        private const val CREATE_OR_UPDATE_REMINDER_METHOD = "b.5"
-        private const val IS_REMINDER_SET_METHOD = "b.6"
-        private const val CANCEL_REMINDER_METHOD = "b.7"
-        private const val LAUNCH_EDIT_PAGE_METHOD = "a.1"
+        private const val CREATE_OR_UPDATE_REMINDER_METHOD = "createOrUpdateReminder"
+        private const val IS_REMINDER_SET_METHOD = "isReminderSet"
+        private const val CANCEL_REMINDER_METHOD = "cancelReminder"
+        private const val GET_REMINDER_DETAILS_METHOD = "getReminderDetails"
         const val EXTRA_REMINDER_TYPE = "EXTRA_REMINDER_TYPE"
         const val EXTRA_NOTE_ID = "EXTRA_NOTE_ID"
         const val ACTION_OPEN = "$PACKAGE.ACTION_OPEN"

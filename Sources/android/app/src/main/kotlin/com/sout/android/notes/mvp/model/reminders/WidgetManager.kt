@@ -28,7 +28,6 @@ import com.sout.android.notes.mvp.model.db.Note
 import com.sout.android.notes.mvp.model.reminders.ReminderManager.ReminderType
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import kotlin.system.exitProcess
 
 @WorkerThread
 class WidgetManager @UiThread constructor(private val kernel: Kernel) : AbsSingleton() {
@@ -41,7 +40,6 @@ class WidgetManager @UiThread constructor(private val kernel: Kernel) : AbsSingl
 
     private suspend fun updateEach(id: Int, appWidgetManager: AppWidgetManager, reset: Boolean) {
         val note = if (!reset) getNoteByWidgetId(id) else null
-        val extra = note?.reminderExtra as ExtraWidgetReminder?
 
         val views = RemoteViews(kernel.context.packageName, R.layout.widget).apply {
             setOnClickPendingIntent(
@@ -124,7 +122,7 @@ class WidgetManager @UiThread constructor(private val kernel: Kernel) : AbsSingl
         else -> false
     }
 
-    private suspend fun setWidget(noteId: Int?, widgetId: Int) { //TODO: add color selection
+    private suspend fun setWidget(noteId: Int?, widgetId: Int) {
         assert(kernel.activityPresenter.isCompleted)
 
         if (noteId != null) {
@@ -144,7 +142,6 @@ class WidgetManager @UiThread constructor(private val kernel: Kernel) : AbsSingl
         kernel.activityPresenter.await().apply { kernel.launchInMain {
             setResult(if (noteId == null) Activity.RESULT_CANCELED else Activity.RESULT_OK)
             finish()
-            exitProcess(0)
         } }
     }
 
@@ -165,7 +162,7 @@ class WidgetManager @UiThread constructor(private val kernel: Kernel) : AbsSingl
 
     companion object {
         private const val SET_BACKGROUND_COLOR = "setBackgroundColor"
-        private const val CONFIGURE_WIDGET_METHOD = "a.2"
-        private const val SET_WIDGET_METHOD = "b.9"
+        private const val CONFIGURE_WIDGET_METHOD = "configureWidget"
+        private const val SET_WIDGET_METHOD = "setWidget"
     }
 }

@@ -12,8 +12,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../model/database/NoteColor.dart';
-import 'Presenter.dart';
-import '../view/PeriodPickerDialog.dart';
+import 'Presenters.dart';
 import '../model/database/Note.dart';
 import '../model/reminders/ReminderType.dart';
 import '../view/EditPage.dart';
@@ -27,31 +26,30 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
   late TextEditingController _textController;
   Note? _noteParameter;
   NoteColor? _color;
-  static const _SEND_METHOD = 'b.11';
-
+  static const _SEND_METHOD = 'send';
+  static const _SAVE_STATE_METHOD = 'saveState';
+  static const _RESET_STATE_METHOD = 'resetState';
+  var _chosenTriggerDate = DateTime.fromMillisecondsSinceEpoch(0);
+  var _chosenTriggerTime = const TimeOfDay(hour: 0, minute: 0);
+  var _chosenPeriodDays = 0;
+  var _chosenPeriodHours = 0;
+  var _chosenPeriodMinutes = 0;
   bool get _isEditing => _noteParameter != null;
+  String get _title => _titleController.text;
+  String get _text => _textController.text;
+  var _canPostNotifications = false;
 
-  EditPagePresenter(Object kernel) : super(kernel, Presenter.EDIT);
-
-  List<String>? _getTextsOrNull() {
-    String title = _titleController.value.text;
-    String text = _textController.value.text;
-
-    if (title.isEmpty || text.isEmpty) {
-      showSnackBar(TEXTS_ARE_EMPTY);
-      return null;
-    } else
-      return [title, text];
-  }
+  EditPagePresenter(Object kernel) : super(kernel, Presenters.EDIT);
 
   void _onSaveClicked() {
-    List<String>? texts;
-    if ((texts = _getTextsOrNull()) == null)
+    if (_title.isEmpty || _text.isEmpty) {
+      showSnackBar(TEXTS_ARE_EMPTY);
       return;
+    }
 
     var note = Note(
-      title: texts![0],
-      text: texts[1],
+      title: _title,
+      text: _text,
       color: _getColor()
     );
 
@@ -65,30 +63,29 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
 
       if (note.reminderType != null)
         kernel.reminderManager.createOrUpdateReminder(note, null, null)
-            .then((_) => _afterSave(null, note));
+          .then((_) => _afterSave(null, note));
       else
         kernel.dbManager.updateNote(note).then((_) => _afterSave(null, note));
     }
   }
 
-  Future<void> _afterSave(int? id, Note note) async {
+  Future<void> _afterSave(int? id, Note note, [DateTime? trigger]) async {
     if (!mounted) return;
-
     setState(() => _noteParameter = id == null ? note : note.copy(id: id));
-    showSnackBar(SAVED);
+    showSnackBar(SAVED + (trigger != null ? NOTIFICATION_WILL_APPEAR_AT + trigger.toString() : ''));
   }
 
   Future<void> _onDeleteClicked() async {
-    Navigator.pop(context);
+    navigator.pop();
 
     if (!_isEditing) {
       showSnackBar(NOTE_DOESNT_EXIST_YET);
       return;
     }
-    Navigator.pop(context);
+    navigator.pop();
 
     if (_noteParameter!.reminderType != null
-        && await kernel.reminderManager.isReminderSet(_noteParameter!.id!))
+      && await kernel.reminderManager.isReminderSet(_noteParameter!.id!))
       kernel.reminderManager.cancelReminder(
         _noteParameter!.id!,
         _noteParameter!.reminderType!,
@@ -98,10 +95,20 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     kernel.dbManager.deleteNote(_noteParameter!);
   }
 
-  void _createReminders() => showModalBottomSheet(
-    context: context,
-    builder: (builder) => Column(
-      children: [
+  Future<void> _createReminders() async {
+    if (_isEditing && await kernel.reminderManager.isReminderSet(_noteParameter!.id!)) {
+      navigator.pop();
+      showSnackBar(REMINDER_IS_SET);
+      return;
+    }
+    if (_title.isEmpty || _text.isEmpty) {
+      showSnackBar(TEXTS_ARE_EMPTY);
+      navigator.pop();
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      builder: (builder) => Column(children: [
         makeDividerForBottomSheet(),
         ListTile(
           title: const Text(ATTACH_NOTIFICATION),
@@ -115,57 +122,215 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
           title: const Text(SCHEDULE_NOTIFICATION),
           onTap: _scheduleNotification
         )
-      ],
-    )
+      ])
+    );
+  }
+
+  Note _makeNote(ReminderType type) => Note(
+      id: _noteParameter?.id,
+      title: _titleController.text,
+      text: _textController.text,
+      reminderType: type,
+      color: _getColor()
   );
 
-  Future<void> _notificationChecker(ReminderType type, void Function(Note) onSuccess) async {
-    Navigator.pop(context);
-    Navigator.pop(context);
+  void _attachNotification() {
+    navigator.pop(); // TODO: create smth like navigator.pop(howManyTimes: int)
+    navigator.pop();
 
-    if (_isEditing
-        && await kernel.reminderManager.isReminderSet(_noteParameter!.id!)) {
-      showSnackBar(REMINDER_IS_SET);
+    final note = _makeNote(ReminderType.ATTACHED);
+    kernel.reminderManager
+      .createOrUpdateReminder(note, null, null)
+      .then((id) => _afterSave(id, note));
+  }
+
+  void _timedNotification() {
+    navigator.pop();
+    navigator.pop();
+
+    final note = _makeNote(ReminderType.TIMED);
+    _pickDate(CHOOSE_DATE, (date) =>
+      _pickTime(CHOOSE_TIME, (time) {
+        if (date == null || time == null) {
+          showSnackBar(CANCELED);
+          return;
+        }
+
+        final trigger = date.add(Duration(
+            hours: time.hour,
+            minutes: time.minute
+        ));
+
+        if (trigger.millisecondsSinceEpoch - DateTime.now().millisecondsSinceEpoch < 1000 * 60) {
+          showSnackBar(INCORRECT_DATE_OR_TIME);
+          return;
+        }
+        kernel.reminderManager
+          .createOrUpdateReminder(note, trigger.millisecondsSinceEpoch, null)
+          .then((id) => _afterSave(id, note, trigger)); // TODO: show trigger time in the snackbar when notifying about successful save # DONE
+      })
+    );
+  }
+
+  void _pickDate(String helpText, void Function(DateTime?) callback) {
+    final now = DateTime.now();
+    showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 30)),
+      helpText: helpText
+    ).then((date) => callback(date));
+  }
+
+  void _pickTime(String helpText, void Function(TimeOfDay?) callback) {
+    final now = TimeOfDay.now();
+    showTimePicker(
+      context: context,
+      initialTime: now,
+      helpText: helpText
+    ).then((time) => callback(time));
+  }
+
+  int _calcTrigger() => Duration(
+    milliseconds: _chosenTriggerDate.millisecondsSinceEpoch,
+    hours: _chosenTriggerTime.hour,
+    minutes: _chosenTriggerTime.minute
+  ).inMilliseconds;
+
+  int _calcPeriod() => Duration(
+    days: _chosenPeriodDays,
+    hours: _chosenPeriodHours,
+    minutes: _chosenPeriodMinutes
+  ).inMilliseconds;
+
+  void _doScheduleNotification() {
+    final trigger = _calcTrigger();
+    final period = _calcPeriod();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    const minute = 1000 * 60;
+
+    if (trigger - now < minute || period - minute < 0) {
+      showSnackBar(INCORRECT_TRIGGER_OR_PERIOD); //(trigger - now).toString() + ' ' + (period - minute).toString() + ' ' + minute.toString() + ' ' + trigger.toString() + ' ' + period.toString());
       return;
     }
 
-    List<String>? texts = _getTextsOrNull();
-    if (texts == null) return;
+    navigator.pop();
+    navigator.pop();
+    navigator.pop();
 
-    onSuccess(Note(
-      id: _noteParameter?.id,
-      title: texts[0],
-      text: texts[1],
-      reminderType: type,
-      color: _getColor()
-    ));
+    final note = _makeNote(ReminderType.SCHEDULED);
+    kernel.reminderManager
+      .createOrUpdateReminder(note, trigger, period)
+      .then((id) => _afterSave(id, note));
   }
 
-  void _attachNotification() => _notificationChecker(ReminderType.ATTACHED, (note) =>
-      kernel.reminderManager
-          .createOrUpdateReminder(note, null, null)
-          .then((id) => _afterSave(id, note))
+  void _scheduleNotification() => showModalBottomSheet( // TODO: put reminder setting logic into ReminderManager or into a separate class
+    context: context,
+    builder: (_) => StatefulBuilder(builder: (_, stateSetter) {
+      final tdt = DateTime.fromMillisecondsSinceEpoch(_calcTrigger()),
+        triggerDate = tdt.millisecondsSinceEpoch == 0 ? NOT_SET : '${tdt.month}-${tdt.day}-${tdt.year}',
+        triggerTime = tdt.millisecondsSinceEpoch == 0 ? NOT_SET : '${tdt.hour}:${tdt.minute}';
+
+      return Column(children: [
+        makeDividerForBottomSheet(),
+        ListTile(
+          title: const Text(
+            SCHEDULE_NOTIFICATION,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: TextButton(
+            onPressed: _doScheduleNotification,
+            child: const Text(
+              DONE,
+              style: TextStyle(fontSize: 16)
+            )
+          )
+        ),
+        makeDividerForBottomSheet(),
+        ListTile(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(TRIGGER_DATE),
+              Text(triggerDate)
+            ]
+          ),
+          onTap: () => _pickDate(
+            CHOOSE_DATE,
+            (date) => stateSetter(() { if (date != null) _chosenTriggerDate = date; })
+          ),
+        ),
+        ListTile(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(TRIGGER_TIME),
+              Text(triggerTime)
+            ]
+          ),
+          onTap: () => _pickTime(
+            CHOOSE_TIME,
+            (time) => stateSetter(() { if (time != null) _chosenTriggerTime = time; })
+          ),
+        ),
+        ListTile(title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(PERIOD_DAYS),
+            DropdownButton<int>(
+              value: _chosenPeriodDays,
+              items: [for (var i = 0; i <= 31; i++) DropdownMenuItem(
+                value: i,
+                child: Text(i.toString()),
+              )],
+              onChanged: (days) => stateSetter(() { if (days != null) _chosenPeriodDays = days; })
+            )
+          ]
+        )), // TODO: draw these items as tree nodes
+        /*
+        trigger
+        | date
+        | time
+        period
+        | days
+        | hours
+        | minutes
+        */
+        ListTile(title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(PERIOD_HOURS),
+            DropdownButton<int>(
+              value: _chosenPeriodHours,
+              items: [for (var i = 0; i <= 24; i++) DropdownMenuItem(
+                value: i,
+                child: Text(i.toString()),
+              )],
+              onChanged: (hours) => stateSetter(() { if (hours != null) _chosenPeriodHours = hours; })
+            )
+          ]
+        )),
+        ListTile(title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(PERIOD_MINUTES),
+            DropdownButton<int>(
+              value: _chosenPeriodMinutes,
+              items: [for (var i = 0; i <= 60; i++) DropdownMenuItem(
+                value: i,
+                child: Text(i.toString()),
+              )],
+              onChanged: (minutes) => stateSetter(() { if (minutes != null) _chosenPeriodMinutes = minutes; })
+            )
+          ]
+        ))
+      ]);
+    })
   );
-
-  void _timedNotification() => _notificationChecker(ReminderType.TIMED, (note) =>
-      _pickDateTime(true, (millis) => kernel.reminderManager
-          .createOrUpdateReminder(note, millis, null)
-          .then((id) => _afterSave(id, note)), _onCancel)
-      );
-
-  void _scheduleNotification() => _notificationChecker(ReminderType.SCHEDULED,
-      (note) => _pickDateTime(false, (initial) => _pickPeriod(
-              (period) => kernel.reminderManager
-                  .createOrUpdateReminder(note, initial, period)
-                  .then((id) => _afterSave(id, note)),
-              _onCancel
-      ), _onCancel)
-  );
-
-  void _onCancel() => showSnackBar(CANCELED);
 
   void _removeReminder() {
-    Navigator.pop(context);
+    navigator.pop();
 
     if (!_isEditing) {
       showSnackBar(REMINDER_IS_NOT_SET);
@@ -181,87 +346,55 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     _afterSave(null, _noteParameter!.copy(reminderType: null));
   }
 
-  void _pickDateTime(bool timed, void Function(int millis) onSuccess, void Function() onFailure) {
-    final initTime = DateTime.now();
-    showDatePicker(
-      context: context,
-      initialDate: initTime,
-      firstDate: initTime,
-      lastDate: initTime.add(const Duration(days: 365)),
-      helpText: timed ? CHOOSE_DATE : CHOOSE_DATE_2
-    ).then((date) =>
-      showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(initTime),
-        helpText: timed ? CHOOSE_TIME : CHOOSE_TIME_2
-      ).then((time) {
-        if (date == null || time == null) {
-          onFailure();
-          return;
-        }
-        Timer.run(() => onSuccess(date.add(Duration(
-          hours: time.hour,
-          minutes: time.minute
-        )).millisecondsSinceEpoch));
-      })
-    );
-  }
-
-  void _pickPeriod(
-    void Function(int millis) onSuccess,
-    void Function() onFailure
-  ) => showDialog(
-    context: context,
-    builder: (context) => PeriodPickerDialog(onSuccess, onFailure)
-  );
-
   void _onMenuClicked() => kernel
-      .reminderManager
-      .getTimedReminderDetails(_noteParameter?.id)
-      .then((details) => showModalBottomSheet(
-        context: context,
-          builder: (builder) => Column(
-            children: [
-              makeDividerForBottomSheet(),
-              ListTile(
-                title: const Text(DETAILS),
-                subtitle: Text(details ?? TIMED_IS_NOT_SET),
-              ),
-              ListTile(
-                title: const Text(DELETE),
-                onTap: _onDeleteClicked
-              ),
-              ListTile(
-                title: const Text(CREATE_REMINDER),
-                onTap: _createReminders
-              ),
-              ListTile(
-                title: const Text(REMOVE_REMINDER),
-                onTap: _removeReminder,
-              ),
-              ListTile(
-                title: const Text(CHOOSE_COLOR),
-                onTap: _chooseColor,
-              ),
-              ListTile(
-                title: const Text(SEND),
-                onTap: _send,
-              )
-            ],
-          )
-      ));
+    .reminderManager
+    .getReminderDetails(_noteParameter?.id)
+    .then((details) => showModalBottomSheet(
+      context: context,
+      builder: (builder) => Column(children: [
+        makeDividerForBottomSheet(),
+        ListTile(
+          title: const Text(DETAILS),
+          subtitle: Text(
+            details ?? TIMED_OR_SCHEDULED_IS_NOT_SET,
+            textAlign: TextAlign.justify
+          ),
+        ),
+        makeDividerForBottomSheet(),
+        ListTile(
+          title: const Text(DELETE),
+          onTap: _onDeleteClicked
+        ),
+        ListTile(
+          title: const Text(CREATE_REMINDER),
+          onTap: _canPostNotifications ? _createReminders : null
+        ),
+        ListTile(
+          title: const Text(REMOVE_REMINDER),
+          onTap: _removeReminder,
+        ),
+        ListTile(
+          title: const Text(CHOOSE_COLOR),
+          onTap: _chooseColor,
+        ),
+        ListTile(
+          title: const Text(SEND),
+          onTap: _send,
+        )
+      ])
+    ));
 
   Future<void> _send() async => kernel.interop.callKotlinMethod(
-      _SEND_METHOD, [_titleController.text, _textController.text]
+    _SEND_METHOD, [_titleController.text, _textController.text]
   );
 
   NoteColor? _getColor() => _color == null
-      ? _noteParameter?.color
-      : _color == NoteColor.NONE ? null : _color;
+    ? _noteParameter?.color
+    : _color == NoteColor.NONE ? null : _color;
 
   void _setColor(NoteColor? color) {
-    Navigator.pop(context);
-    Navigator.pop(context);
+    navigator.pop();
+    navigator.pop();
     _color = color;
     showSnackBar(COLOR_SET);
   }
@@ -270,8 +403,8 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     final list = [
       Padding(
         padding: !reversed
-            ? const EdgeInsets.only(right: 10)
-            : const EdgeInsets.only(left: 10),
+          ? const EdgeInsets.only(right: 10)
+          : const EdgeInsets.only(left: 10),
         child: SizedBox(
           width: 25,
           height: 25,
@@ -280,34 +413,30 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
       ),
       Text(text)
     ];
-    return Row(children: reversed
-        ? list.reversed.toList(growable: false)
-        : list);
+    return Row(children: reversed ? list.reversed.toList(growable: false) : list);
   }
 
   void _chooseColor() => showModalBottomSheet(
     context: context,
-    builder: (context) => ListView(
-      children: [
-        makeDividerForBottomSheet(),
-        ListTile(title: _makeRowOfColorAndText(
-          _noteParameter?.color?.value != null
-              ? Color(_noteParameter!.color!.value!)
-              : Colors.transparent,
-          CURRENT_COLOR,
-          true
-        )),
-        makeDividerForBottomSheet(),
-        ...NoteColor.values.map((noteColor) => ListTile(
-          title: _makeRowOfColorAndText(
-            noteColor.value != null ? Color(noteColor.value!) : Colors.transparent,
-            noteColor.name,
-            false
-          ),
-          onTap: () => _setColor(noteColor),
-        ))
-      ],
-    )
+    builder: (context) => ListView(children: [
+      makeDividerForBottomSheet(),
+      ListTile(title: _makeRowOfColorAndText(
+        _noteParameter?.color?.value != null
+          ? Color(_noteParameter!.color!.value!)
+          : Colors.transparent,
+        CURRENT_COLOR,
+        true
+      )),
+      makeDividerForBottomSheet(),
+      ...NoteColor.values.map((noteColor) => ListTile(
+        title: _makeRowOfColorAndText(
+          noteColor.value != null ? Color(noteColor.value!) : Colors.transparent,
+          noteColor.name,
+          false
+        ),
+        onTap: () => _setColor(noteColor),
+      ))
+    ])
   );
 
   @override
@@ -317,6 +446,10 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
 
     if ((arguments is! Note?) && (arguments is! List<String>))
       throw ArgumentError(EMPTY_STRING);
+
+    kernel.reminderManager
+      .canPostNotifications()
+      .then((value) => _canPostNotifications = value);
 
     if (arguments is Note?)
       _noteParameter = arguments;
@@ -328,6 +461,9 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     _textController.addListener(_onTextChanged);
     _textController.text = _noteParameter?.text ?? EMPTY_STRING;
 
+    if (_noteParameter != null && _noteParameter!.id == null)
+      _noteParameter = null;
+
     if (arguments is List<String>)
       _handleSendText(arguments[0], arguments[1]);
   }
@@ -337,13 +473,21 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     _textController.text = text;
   }
 
-  void _onTextChanged() {
-    if (!_isEditing)
-      _titleController.text = _textController.text;
+  Future<void> _onTextChanged() async {
+    if (!_isEditing) _titleController.text = _textController.text;
+
+    try { await kernel.interop.callKotlinMethod(_SAVE_STATE_METHOD, Note(
+      id: _noteParameter?.id,
+      title: _titleController.text,
+      text: _textController.text,
+      color: _getColor()
+    ).toMap()); } catch (_) {} // ActivityPresenter removes requestProcessor when activity stops, in order to avoid throwing 'saveState method impl not found' when activity stops while keyboard is still shown
   }
 
   @override
   void dispose() {
+    kernel.interop.callKotlinMethod(_RESET_STATE_METHOD, null);
+
     super.dispose();
     _titleController.dispose();
 
@@ -352,7 +496,31 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => WillPopScope(
+    onWillPop: () async {
+      final title = _titleController.text;
+      final text = _textController.text;
+      if (_noteParameter != null || title.isEmpty && text.isEmpty) return true;
+
+      kernel.callMainPresenter((presenter) => presenter.showSnackBar(
+        UNSAVED,
+        actions: [Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: IconButton(
+            onPressed: () => presenter.handleSendText(title, text),
+            icon: const Icon(
+              Icons.edit,
+              color: Colors.white70,
+            ),
+          ),
+        )]
+      ));
+      return true;
+    },
+    child: _build(context)
+  );
+
+  Widget _build(BuildContext context) => Scaffold(
     appBar: AppBar(
       actions: [
         IconButton(
@@ -370,40 +538,33 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
           )
         )
       ],
-      title: SizedBox(
-        child: TextFormField(
-          keyboardType: TextInputType.text,
-          maxLines: 1,
-          cursorColor: Colors.white70,
-          controller: _titleController,
-          decoration: const InputDecoration(
-            hintText: TITLE_STRING,
-            hintStyle: TextStyle(color: Colors.white38)
-          ),
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 20
-          ),
-        )
-      )
+      title: SizedBox(child: TextFormField(
+        keyboardType: TextInputType.text,
+        maxLines: 1,
+        cursorColor: Colors.white70,
+        controller: _titleController,
+        decoration: const InputDecoration(
+          hintText: TITLE_STRING,
+          hintStyle: TextStyle(color: Colors.white38)
+        ),
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 20
+        ),
+      ))
     ),
     body: Padding(
       padding: const EdgeInsets.all(5),
-      child: Column(
-        children: [
-          Expanded(
-            child: TextFormField(
-              style: const TextStyle(fontSize: 20),
-              keyboardType: TextInputType.multiline,
-              maxLines: null,
-              expands: true,
-              controller: _textController,
-              autofocus: !_isEditing,
-              decoration: const InputDecoration(hintText: TEXT_STRING),
-            )
-          )
-        ],
-      ),
+      child: Column(children: [Expanded(child: TextFormField(
+        textAlign: TextAlign.justify,
+        style: const TextStyle(fontSize: 20),
+        keyboardType: TextInputType.multiline,
+        maxLines: null,
+        expands: true,
+        controller: _textController,
+        autofocus: !_isEditing,
+        decoration: const InputDecoration(hintText: TEXT_STRING),
+      ))])
     )
   );
 }

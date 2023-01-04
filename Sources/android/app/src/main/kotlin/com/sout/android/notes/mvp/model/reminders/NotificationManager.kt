@@ -37,7 +37,6 @@ import com.sout.android.notes.mvp.model.reminders.ReminderManager.ReminderType
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.*
-import kotlin.collections.ArrayList
 
 @WorkerThread
 class NotificationManager @UiThread constructor(private val kernel: Kernel) : AbsSingleton() {
@@ -48,7 +47,7 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
 
     @UiThread
     private fun checkSelfPermission() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) { // How I hate dealing with these permissions... It causes designing too complex logic for completing not so complex tasks
             canPostNotifications = true
             canSchedule = true
             return
@@ -57,17 +56,13 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
         canPostNotifications =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) kernel
                 .context
-                .checkSelfPermission(Manifest
-                    .permission
-                    .POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                .checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
             else true
 
         canSchedule =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) kernel
-                .context
-                .checkSelfPermission(Manifest
-                    .permission
-                    .SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED
+                .context // can return true even if denied in system settings, therefore try-catch applied to danger calls and therefore UI part doesn't check it
+                .checkSelfPermission(Manifest.permission.SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED
             else true
 
         var permissions = Array(0) { STR_EMPTY }
@@ -87,9 +82,6 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
 
                 canPostNotifications = if (post == NUM_UNDEF) true else it[post]
                 canSchedule = if (schedule == NUM_UNDEF) true else it[schedule]
-
-                if (!canPostNotifications)
-                    kernel.interop.callDartMethod(NOTIFY_CANT_POST_NOTIFICATIONS_METHOD, null)
             }
         }
     }
@@ -134,34 +126,31 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
             .setContentIntent(kernel.reminderManager.createActivityOpenIntent(id, type))
             .setSmallIcon(R.drawable.icon_notes_notification)
 
-        if (type !== ReminderType.TIMED)
-            builder.addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                ACTION_DISMISS_TITLE,
-                PendingIntent.getBroadcast(
-                    kernel.context,
-                    ReminderManager.makeId(),
-                    kernel.reminderManager.createBroadcastIntent().apply {
-                        action = ACTION_DISMISS
-                        putExtra(ReminderManager.EXTRA_NOTE_ID, id)
-                        putExtra(ReminderManager.EXTRA_REMINDER_TYPE, type.value)
-                    },
-                    ReminderManager.pendingIntentFlags()
-                )
-            )
-        else
-            builder.setDeleteIntent(PendingIntent.getBroadcast(
+        if (type !== ReminderType.TIMED) builder.addAction(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            ACTION_DISMISS_TITLE,
+            PendingIntent.getBroadcast(
                 kernel.context,
                 ReminderManager.makeId(),
                 kernel.reminderManager.createBroadcastIntent().apply {
-                    action = ACTION_SWAP_OFF
+                    action = ACTION_DISMISS
                     putExtra(ReminderManager.EXTRA_NOTE_ID, id)
                     putExtra(ReminderManager.EXTRA_REMINDER_TYPE, type.value)
                 },
                 ReminderManager.pendingIntentFlags()
-            ))
+            )
+        ) else builder.setDeleteIntent(PendingIntent.getBroadcast(
+            kernel.context,
+            ReminderManager.makeId(),
+            kernel.reminderManager.createBroadcastIntent().apply {
+                action = ACTION_SWAP_OFF
+                putExtra(ReminderManager.EXTRA_NOTE_ID, id)
+                putExtra(ReminderManager.EXTRA_REMINDER_TYPE, type.value)
+            },
+            ReminderManager.pendingIntentFlags()
+        ))
 
-        getNotificationManagerCompat().notify(id, builder.build())
+        try { getNotificationManagerCompat().notify(id, builder.build()) } catch (_: Exception) {}
     }
 
     private fun cancel(id: Int) = NotificationManagerCompat.from(kernel.context).cancel(id)
@@ -171,9 +160,9 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
         ReminderType.TIMED, ReminderType.SCHEDULED -> {
             cancel(id)
             val alarmManager = (kernel.context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager)!!
-            alarmManager.cancel(makeTimedOrScheduledPendingIntent(id, (kernel
+            try { alarmManager.cancel(makeTimedOrScheduledPendingIntent(id, (kernel
                 .databaseManager
-                .getReminderExtraById(id) as ExtraNotificationReminder).id, type))
+                .getReminderExtraById(id) as ExtraNotificationReminder).id, type)) } catch (_: Exception) {}
         }
         else -> throw IllegalArgumentException()
     }
@@ -185,8 +174,12 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
         period: Long?
     ): Int? {
         val notifId = ReminderManager.makeId()
-        val extra = if (note.id != null) kernel.databaseManager.getReminderExtraById(note.id) else null
-        val note2 = note.copy(reminderExtra = extra ?: ExtraNotificationReminder(type, notifId, dateTime, period))
+        val previousExtra = if (note.id != null) kernel.databaseManager.getReminderExtraById(note.id) else null
+
+        val extra = if (!canPostNotifications) null else
+            if (type == ReminderType.SCHEDULED && !canSchedule) null
+            else ExtraNotificationReminder(type, notifId, dateTime, period)
+        val note2 = note.copy(reminderExtra = previousExtra ?: extra)
 
         val id = if (note.id == null)
             kernel.databaseManager.insertNote(note2)
@@ -196,7 +189,6 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
         }
 
         val result = if (note.id == null) id else null
-
         if (!canPostNotifications) return result
 
         when (type) {
@@ -207,7 +199,6 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
                 assert(period == null)
                 if (dateTime != null)
                     makeTimed(id, dateTime, notifId)
-                //else TODO: check if updated already dispatched timed note and if not dispatched
             }
             ReminderType.SCHEDULED -> {
                 if (!canSchedule) return result
@@ -242,19 +233,19 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
         (kernel.context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager)!!
 
     private fun makeTimed(id: Int, dateTime: Long, notifId: Int) =
-        AlarmManagerCompat.setExactAndAllowWhileIdle(
+        try { AlarmManagerCompat.setExactAndAllowWhileIdle(
             getAlarmManager(),
             AlarmManager.RTC_WAKEUP,
             dateTime,
             makeTimedOrScheduledPendingIntent(id, notifId, ReminderType.TIMED)
-        )
+        ) } catch (_: Exception) {}
 
     private suspend fun notifyTimedOrScheduled(intent: Intent) {
         val action = intent.action
         val type = intent.getIntExtra(ReminderManager.EXTRA_REMINDER_TYPE, NUM_UNDEF)
 
         assert(action === ACTION_TIMED && type == ReminderType.TIMED.value
-                || action === ACTION_SCHEDULED && type == ReminderType.SCHEDULED.value)
+            || action === ACTION_SCHEDULED && type == ReminderType.SCHEDULED.value)
 
         val note = kernel.databaseManager.getNoteById(
             intent.getIntExtra(ReminderManager.EXTRA_NOTE_ID, NUM_UNDEF))!!
@@ -268,21 +259,22 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
     private suspend fun onSwappedOff(intent: Intent) {
         val id = intent.getIntExtra(ReminderManager.EXTRA_NOTE_ID, NUM_UNDEF)
         assert(intent.getIntExtra(ReminderManager.EXTRA_REMINDER_TYPE, NUM_UNDEF)
-                == ReminderType.TIMED.value
-                && id != NUM_UNDEF
+            == ReminderType.TIMED.value
+            && id != NUM_UNDEF
         )
         kernel.databaseManager.setReminderExtra(id, null)
     }
 
     private fun makeScheduled(id: Int, dateTime: Long, period: Long, notifId: Int) =
-        getAlarmManager().setRepeating(
+        try { getAlarmManager().setRepeating(
             AlarmManager.RTC_WAKEUP,
             dateTime,
             period,
             makeTimedOrScheduledPendingIntent(id, notifId, ReminderType.SCHEDULED)
-        )
+        ) } catch (_: Exception) {}
 
-    private suspend fun onDeviceBooted() = kernel.databaseManager.getNotesWithReminders().forEach {
+    private suspend fun onDeviceBooted()
+    = if (!canPostNotifications) Unit else kernel.databaseManager.getNotesWithReminders().forEach {
         when (it.reminderExtra!!.type) {
             ReminderType.ATTACHED -> makeAttached(it.id!!, it.title, it.text)
             ReminderType.TIMED -> {
@@ -298,11 +290,8 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
         }
     }
 
-    @Suppress("BlockingMethodInNonBlockingContext")
-    suspend fun getTimedDetails(id: Int?): String? {
-        val extra = kernel
-            .databaseManager
-            .getReminderExtraById(id ?: return null)
+    suspend fun getTimedOrScheduledDetails(id: Int?): String? {
+        val extra = kernel.databaseManager.getReminderExtraById(id ?: return null)
 
         if (extra == null || extra !is ExtraNotificationReminder) return null
         val millis = extra.dateTime ?: return null
@@ -324,22 +313,27 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
             append(calendar[Calendar.HOUR_OF_DAY])
             append(COLON)
             append(calendar[Calendar.MINUTE])
-        }.toString()
-    }
 
-    suspend fun handleDartMethod(
-        call: MethodCall,
-        result: MethodChannel.Result
-    ): Boolean = when (call.method) {
-        GET_TIMED_DETAILS -> {
-            result.success(getTimedDetails(call.arguments as Int?))
-            true
-        }
-        else -> false
+            extra.period?.let {
+                append(SCHEDULED_PERIOD)
+                append((it / (1000 * 60 * 60) % 24).toInt())
+                append(HOURS)
+                append((it / (1000 * 60) % 60).toInt())
+                append(MINUTES)
+            }
+        }.toString()
     }
 
     fun createReminderExtra(notificationId: Int, type: ReminderType) =
         ExtraNotificationReminder(type, notificationId, null, null) as AbsReminderExtra
+
+    fun handleDartMethod(call: MethodCall, result: MethodChannel.Result): Boolean = when (call.method) {
+        CAN_POST_NOTIFICATIONS_METHOD -> {
+            result.success(canPostNotifications)
+            true
+        }
+        else -> false
+    }
 
     private data class ExtraNotificationReminder(
         override val type: ReminderType,
@@ -359,12 +353,14 @@ class NotificationManager @UiThread constructor(private val kernel: Kernel) : Ab
         private const val ACTION_SWAP_OFF = "$PACKAGE.ACTION_SWAP_OFF"
         private const val ACTION_SCHEDULED = "$PACKAGE.ACTION_SCHEDULED"
         private const val TIMED_AFTER_BOOT_DELAY = 10000
-        private const val GET_TIMED_DETAILS = "b.8"
         private const val DOT = '.'
         private const val COLON = ':'
         private const val TIMED_DISPATCHED = "Timed reminder has already notified on "
         private const val TIMED_PENDING = "Timed reminder will notify on "
         private const val TIMED_MIDDLE = " at "
-        private const val NOTIFY_CANT_POST_NOTIFICATIONS_METHOD = "a.5"
+        private const val SCHEDULED_PERIOD = ", repeats with the period of "
+        private const val HOURS = " hours "
+        private const val MINUTES = " minutes"
+        private const val CAN_POST_NOTIFICATIONS_METHOD = "canPostNotifications"
     }
 }

@@ -19,14 +19,17 @@ import 'Note.dart';
 
 @sealed
 class DatabaseManager {
-  static const _FETCH_NOTES_METHOD = 'b.0';
-  static const _INSERT_NOTE_METHOD = 'b.1';
-  static const _UPDATE_NOTE_METHOD = 'b.2';
-  static const _DELETE_NOTE_METHOD = 'b.3';
-  static const _ON_DB_MODIFIED_METHOD = 'a.0';
-  static const _GET_NOTE_BY_ID_METHOD = "b.4";
-  static const _SEARCH_BY_TITLE_METHOD = 'b.10';
-  static const _NOTIFY_BACKED_UP_DB_METHOD = 'a.4';
+  static const _FETCH_NOTES_METHOD = 'fetchNotes';
+  static const _INSERT_NOTE_METHOD = 'insertNote';
+  static const _UPDATE_NOTE_METHOD = 'updateNote';
+  static const _DELETE_NOTE_METHOD = 'deleteNote';
+  static const _ON_DB_MODIFIED_METHOD = 'onDbModified';
+  static const _GET_NOTE_BY_ID_METHOD = "getNoteById";
+  static const _SEARCH_BY_TITLE_METHOD = 'searchByTitle';
+  static const _NOTIFY_BACKED_UP_DB_METHOD = 'notifyBackedUpDb';
+  static const _DELETE_SELECTED_METHOD = 'deleteSelected';
+  static const _SET_SORT_MODE_METHOD = 'setSortMode';
+  static const _GET_SORT_MODE_METHOD = 'getSortMode';
   static bool _initialized = false;
   final Kernel _kernel;
   final Observable<Pair<Note?, DBModificationMode>, void> _observable = Observable();
@@ -42,8 +45,8 @@ class DatabaseManager {
       case _ON_DB_MODIFIED_METHOD:
         List<dynamic> arguments = call.arguments;
         await onDBModified(
-            arguments[0] != null ? Note.fromMap(arguments[0]) : null,
-            DBModificationMode.create(arguments[1] as int)
+          arguments[0] != null ? Note.fromMap(arguments[0]) : null,
+          DBModificationMode.create(arguments[1] as int)
         );
         return true;
       case _NOTIFY_BACKED_UP_DB_METHOD:
@@ -56,7 +59,7 @@ class DatabaseManager {
   Future<List<Note>> fetchNotes(int from, int amount) async {
     assert(from >= 0 && amount > 0);
     List<dynamic>? fetched = await _kernel.interop
-        .callKotlinMethod(_FETCH_NOTES_METHOD, <int>[from, amount]);
+      .callKotlinMethod(_FETCH_NOTES_METHOD, <int>[from, amount]);
     return fetched?.map(Note.fromMap).toList() ?? <Note>[];
   }
 
@@ -76,19 +79,30 @@ class DatabaseManager {
   }
 
   Future<Note?> getNoteById(int id) async =>
-      await _kernel.interop.callKotlinMethod(_GET_NOTE_BY_ID_METHOD, id, (object) =>
-      object != null ? Note.fromMap(object) : null);
+    await _kernel.interop.callKotlinMethod(_GET_NOTE_BY_ID_METHOD, id, (object) =>
+    object != null ? Note.fromMap(object) : null);
 
   Future<void> onDBModified(Note? note, DBModificationMode mode) async =>
-      _observable.notify(Pair(note, mode), null);
+    _observable.notify(Pair(note, mode), null);
 
   void observeDBModification(
     void Function(Pair<Note?, DBModificationMode>) observer,
     bool add
   ) => _observable.observe(observer, add);
 
-  Future<List<Note>> searchByTitle(String title) async => (await _kernel
-      .interop
-      .callKotlinMethod(_SEARCH_BY_TITLE_METHOD, title) as List<dynamic>
+  Future<List<Note>> searchByTitle(String title) async => (
+    await _kernel.interop
+    .callKotlinMethod(_SEARCH_BY_TITLE_METHOD, title) as List<dynamic>
   ).map(Note.fromMap).toList(growable: false);
+
+  Future<void> deleteSelected(List<int> ids) async =>
+    _kernel.interop.callKotlinMethod(_DELETE_SELECTED_METHOD, ids);
+
+  Future<Pair<int, bool>> fetchSortMode() async {
+    final result = await _kernel.interop.callKotlinMethod(_GET_SORT_MODE_METHOD, null) as List<dynamic>;
+    return Pair(result[0], result[1]);
+  }
+
+  Future<void> setSortMode(int which, bool order) async =>
+    await _kernel.interop.callKotlinMethod(_SET_SORT_MODE_METHOD, [which, order]);
 }

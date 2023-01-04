@@ -11,13 +11,16 @@ import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
 import '../view/AbsStatefulWidget.dart';
 import '../model/core/Kernel.dart';
-import 'Presenter.dart';
+import 'Presenters.dart';
 
 abstract class AbsPresenter<V extends AbsPage> extends State<V> {
   @protected
   late final Kernel kernel;
   @protected
-  final Presenter presenter;
+  final Presenters presenter;
+
+  @protected
+  NavigatorState get navigator => Navigator.of(context);
 
   @mustCallSuper
   AbsPresenter(Object kernel, this.presenter) { this.kernel = kernel as Kernel; }
@@ -39,15 +42,28 @@ abstract class AbsPresenter<V extends AbsPage> extends State<V> {
   @nonVirtual
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSnackBar(
     String text,
-    [Duration duration = const Duration(seconds: 4)]
+    {Duration duration = const Duration(seconds: 4),
+    List<Widget>? actions}
   ) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text(
-      text,
-      style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+    content: SizedBox(
+      height: 35,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            text,
+            style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+          ),
+          if (actions != null) ...actions
+        ]
+      ),
     ),
     duration: duration,
   ));
 
   @nonVirtual
-  Divider makeDividerForBottomSheet() => const Divider(height: 1.0, thickness: 1.0);
+  Divider makeDividerForBottomSheet() => const Divider(
+    height: 1.0,
+    thickness: 1.0
+  );
 }

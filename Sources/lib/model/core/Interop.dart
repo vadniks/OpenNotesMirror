@@ -18,12 +18,12 @@ import '../../consts.dart';
 @sealed
 class Interop {
   static const _CHANNEL_NAME = '$PACKAGE_NAME/channel';
+  static const LAUNCH_EDIT_PAGE = 'launchEditPage';
   static bool _initialized = false;
-  final Kernel _kernel;
   late final MethodChannel _channel;
   final Observable<MethodCall, Future<bool>> _observable = Observable();
 
-  Interop(this._kernel) {
+  Interop(Kernel _) {
     assert(!_initialized);
     _initialized = true;
 
@@ -38,7 +38,7 @@ class Interop {
   }
 
   void observeMethodHandling(Future<bool> Function(MethodCall) observer, bool add) =>
-      _observable.observe(observer, add);
+    _observable.observe(observer, add);
 
   Future<T> callKotlinMethod<T>(
     String which,

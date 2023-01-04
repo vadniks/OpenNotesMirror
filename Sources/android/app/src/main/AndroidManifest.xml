@@ -9,9 +9,7 @@
 
     Source codes are opened only for review.
 -->
-<manifest
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.sout.android.notes">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
@@ -58,10 +56,6 @@
            android:exported="false">
 
            <intent-filter>
-               <action android:name="com.sout.android.notes_next_gen.ACTION_DISMISS"/>
-               <action android:name="com.sout.android.notes_next_gen.ACTION_TIMED"/>
-               <action android:name="com.sout.android.notes_next_gen.ACTION_SWAP_OFF"/>
-               <action android:name="com.sout.android.notes_next_gen.ACTION_SCHEDULED"/>
                <action android:name="android.intent.action.BOOT_COMPLETED"/>
            </intent-filter>
        </receiver>

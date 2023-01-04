@@ -11,7 +11,7 @@
 
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import 'Presenter.dart';
+import 'Presenters.dart';
 import 'ViewLocator.dart';
 import '../view/Screen.dart';
 import '../consts.dart';
@@ -29,7 +29,7 @@ class ScreenPresenter extends AbsPresenter<Screen> {
     return MaterialColor(Colors.black.value, map);
   }
 
-  ScreenPresenter(Object kernel) : super(kernel, Presenter.SCREEN);
+  ScreenPresenter(Object kernel) : super(kernel, Presenters.SCREEN);
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -41,9 +41,10 @@ class ScreenPresenter extends AbsPresenter<Screen> {
         accentColor: Colors.greenAccent
       ),
       primarySwatch: SchedulerBinding.instance.window.platformBrightness == Brightness.light
-          ? Colors.green
-          : _makeBlack()
+        ? Colors.green
+        : _makeBlack()
     ),
+    themeMode: ThemeMode.system,
     darkTheme: ThemeData.dark().copyWith(
       primaryColor: Colors.cyan,
       brightness: Brightness.dark,
@@ -72,9 +73,9 @@ class ScreenPresenter extends AbsPresenter<Screen> {
     ),
     initialRoute: ROUTE_MAIN,
     routes: {
-      ROUTE_MAIN : (context) => ViewLocator.createView(kernel, Presenter.MAIN),
-      ROUTE_EDIT : (context) => ViewLocator.createView(kernel, Presenter.EDIT),
-      ROUTE_DRAW : (context) => ViewLocator.createView(kernel, Presenter.DRAW)
+      ROUTE_MAIN : (context) => ViewLocator.createView(kernel, Presenters.MAIN),
+      ROUTE_EDIT : (context) => ViewLocator.createView(kernel, Presenters.EDIT),
+      ROUTE_DRAW : (context) => ViewLocator.createView(kernel, Presenters.DRAW)
     },
   );
 }

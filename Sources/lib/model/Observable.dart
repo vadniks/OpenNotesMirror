@@ -16,7 +16,7 @@ class Observable<P, R> {
   final List<R Function(P)> _observers = [];
   
   void observe(R Function(P) observer, bool add) =>
-      add ? _observers.add(observer) : _observers.remove(observer);
+    add ? _observers.add(observer) : _observers.remove(observer);
 
   void notify(P parameter, void Function(R)? callback) {
     for (final observer in _observers)

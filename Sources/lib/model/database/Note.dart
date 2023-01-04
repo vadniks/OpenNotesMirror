@@ -52,20 +52,19 @@ class Note {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is Note &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          title == other.title &&
-          text == other.text &&
-          reminderType == other.reminderType;
+    identical(this, other) ||
+    other is Note &&
+      runtimeType == other.runtimeType &&
+      id == other.id &&
+      title == other.title &&
+      text == other.text &&
+      reminderType == other.reminderType;
 
   @override
-  int get hashCode =>
-      id.hashCode ^ title.hashCode ^ text.hashCode ^ reminderType.hashCode;
+  int get hashCode => id.hashCode ^ title.hashCode ^ text.hashCode ^ reminderType.hashCode;
 
   static Note fromMap(dynamic map) => Note(
-    id: map[ID] as int,
+    id: map[ID] as int?,
     title: map[TITLE],
     text: map[TEXT],
     reminderType: ReminderType.create(map[REMINDER_TYPE]),

@@ -14,10 +14,12 @@ package com.sout.android.notes.mvp.model.core
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import androidx.annotation.Keep
 import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import com.sout.android.notes.COPYRIGHT
+import com.sout.android.notes.PACKAGE
 import com.sout.android.notes.mvp.presenter.ActivityPresenter
 import com.sout.android.notes.mvp.model.db.DatabaseManager
 import com.sout.android.notes.mvp.model.reminders.ReminderManager
@@ -32,8 +34,19 @@ class Kernel @UiThread constructor(private val contextGetter: () -> Context) : A
     val context: Context get() = contextGetter()
     val interop = Interop(this)
     val databaseManager = DatabaseManager(this)
-    val activityPresenter = CompletableDeferred<ActivityPresenter>()
+    var activityPresenter = CompletableDeferred<ActivityPresenter>(); private set
     val reminderManager = ReminderManager(this)
+    private var isFinishingPreviousActivity = false
+
+    @UiThread
+    fun onActivityPresenterInit(presenter: ActivityPresenter) {
+        if (activityPresenter.isCompleted) runBlocking {
+            isFinishingPreviousActivity = true
+            activityPresenter.await().finish() // Cuz ActivityPresenter is effectively-singleton, meaning the only one valid instance of it must be referenced to from kernel
+            activityPresenter = CompletableDeferred()
+        }
+        activityPresenter.complete(presenter)
+    }
 
     fun createActivityOpenIntent() = Intent(context, Activity::class.java).apply {
         flags = Intent.FLAG_FROM_BACKGROUND or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -48,7 +61,7 @@ class Kernel @UiThread constructor(private val contextGetter: () -> Context) : A
     fun onActivityStart() = init()
 
     @UiThread
-    fun onActivityStop() = launchInBackground { databaseManager.terminate() }
+    fun onActivityStop() = launchInBackground { databaseManager.terminate() } // Cuz the system doesn't call onDestroy in activity, and the database needs to be closed, we have two options: close it after any db ro/rw operation or close it here
 
     fun onStartReceivingBroadcast() = init()
 
@@ -66,7 +79,11 @@ class Kernel @UiThread constructor(private val contextGetter: () -> Context) : A
     }
 
     @UiThread
-    fun onActivityDestroy() = mainScope.cancel()
+    fun onActivityDestroy() {
+        if (isFinishingPreviousActivity) return
+        mainScope.cancel()
+        exitProcess(0)
+    }
 
     @Deprecated("unused")
     @WorkerThread
@@ -77,8 +94,10 @@ class Kernel @UiThread constructor(private val contextGetter: () -> Context) : A
 
     fun launchInMain(action: suspend CoroutineScope.() -> Unit) = mainScope.launch { action(this) }
 
+    val sharedPrefs: SharedPreferences get() = context.getSharedPreferences(SHARED_PREFS_FILE_NAME, Context.MODE_PRIVATE)
+
     @JvmDefaultWithoutCompatibility
-    interface Injectable {
+    interface Injectable { // Kernel is injected into implementations of this interface
         var kernel: Kernel
 
         fun inject(context: Context) = (context.applicationContext as Injector).injectKernel(this)
@@ -95,4 +114,8 @@ class Kernel @UiThread constructor(private val contextGetter: () -> Context) : A
     @Retention(AnnotationRetention.BINARY)
     @Target(AnnotationTarget.CLASS)
     annotation class Comment(val it: String)
+
+    companion object {
+        private const val SHARED_PREFS_FILE_NAME = "$PACKAGE.SharedPrefs"
+    }
 }
