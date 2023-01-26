@@ -35,7 +35,13 @@ class ScreenPresenter extends AbsPresenter<Screen> {
   ScreenPresenter(Object kernel) : super(kernel, Presenters.SCREEN) {
     super.kernel.interop.observeMethodHandling(_handleKotlinMethod, true);
     super.kernel.interop.callKotlinMethod(_IS_DARK_THEME_METHOD, null)
-      .then((isDark) => setState(() =>_isDark = isDark));
+      .then((isDark) => setState(() => _isDark = isDark));
+  }
+
+  @override
+  void dispose() {
+    kernel.interop.observeMethodHandling(_handleKotlinMethod, false);
+    super.dispose();
   }
 
   Future<bool> _handleKotlinMethod(MethodCall call) async {

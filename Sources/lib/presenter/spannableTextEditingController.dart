@@ -14,7 +14,7 @@ import 'package:meta/meta.dart';
 import '../model/database/NoteColor.dart';
 import '../model/database/Span.dart';
 
-enum FontStyleExtended {
+enum FontStyleExtended { // TODO: move into Span.dart
   NORMAL('Normal', FontStyle.normal, FontWeight.normal, 0),
   BOLD('Bold', FontStyle.normal, FontWeight.bold, 1),
   ITALIC('Italic', FontStyle.italic, FontWeight.normal, 2),

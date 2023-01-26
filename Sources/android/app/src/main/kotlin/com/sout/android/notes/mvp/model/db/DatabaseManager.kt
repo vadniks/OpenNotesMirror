@@ -193,8 +193,7 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
 
     suspend fun deleteMultiple(ids: List<Int>) = ids.forEach {
         assert(delegate.await().deleteById(it) == 1)
-        notifyDBModified()
-    }
+    }.also { notifyDBModified() }
 
     private fun notifyDBModified() = kernel.interop.callDartMethod(ON_DB_MODIFIED_METHOD, null)
 
@@ -357,7 +356,10 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
                 `$REMINDER_EXTRA` blob,
                 `$COLOR` text,
                 `$SPANS` text
-           )""".trimIndent())
+            )""".trimIndent())
+            database.execSQL("""
+                create index `index_${DB_NAME}_$TITLE` on `$DB_NAME` (`$TITLE`)
+            """.trimIndent())
 
             notes.forEach { database.insert(DB_NAME, SQLiteDatabase.CONFLICT_FAIL, ContentValues().apply {
                 put(ID, it.id)
