@@ -1,5 +1,5 @@
 /// Created by VadNiks on Aug 10 2022
-/// Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+/// Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 ///
 /// This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
 /// No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -7,7 +7,7 @@
 ///
 /// Source codes are opened only for review.
 
-// ignore_for_file: constant_identifier_names
+// ignore_for_file: constant_identifier_names, curly_braces_in_flow_control_structures
 
 import '../../consts.dart';
 
@@ -24,13 +24,9 @@ enum ReminderType {
 
   static ReminderType? create(int? value) {
     if (value == null) return null;
-    switch (value) {
-      case 0: return ReminderType.ATTACHED;
-      case 1: return ReminderType.TIMED;
-      case 2: return ReminderType.SCHEDULED;
-      case 3: return ReminderType.WIDGETED;
-      default: throw ArgumentError(EMPTY_STRING);
-    }
+    for (final type in ReminderType.values)
+      if (type.value == value) return type;
+    return null;
   }
 
   @override

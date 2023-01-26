@@ -1,5 +1,5 @@
 /// Created by VadNiks on Aug 10 2022
-/// Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+/// Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 ///
 /// This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
 /// No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -13,8 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
 import '../core/Kernel.dart';
 import '../Observable.dart';
-import '../Pair.dart';
-import 'DBModificationMode.dart';
+import '../tuples.dart';
 import 'Note.dart';
 
 @sealed
@@ -32,7 +31,7 @@ class DatabaseManager {
   static const _GET_SORT_MODE_METHOD = 'getSortMode';
   static bool _initialized = false;
   final Kernel _kernel;
-  final Observable<Pair<Note?, DBModificationMode>, void> _observable = Observable();
+  final Observable<void, void> _observable = Observable();
 
   DatabaseManager(this._kernel) {
     assert(!_initialized);
@@ -43,11 +42,7 @@ class DatabaseManager {
   Future<bool> _handleKotlinMethod(MethodCall call) async {
     switch (call.method) {
       case _ON_DB_MODIFIED_METHOD:
-        List<dynamic> arguments = call.arguments;
-        await onDBModified(
-          arguments[0] != null ? Note.fromMap(arguments[0]) : null,
-          DBModificationMode.create(arguments[1] as int)
-        );
+        await onDBModified();
         return true;
       case _NOTIFY_BACKED_UP_DB_METHOD:
         _kernel.callMainPresenter((presenter) => presenter.notifyDBBackedUp());
@@ -82,13 +77,10 @@ class DatabaseManager {
     await _kernel.interop.callKotlinMethod(_GET_NOTE_BY_ID_METHOD, id, (object) =>
     object != null ? Note.fromMap(object) : null);
 
-  Future<void> onDBModified(Note? note, DBModificationMode mode) async =>
-    _observable.notify(Pair(note, mode), null);
+  Future<void> onDBModified() async => _observable.notify(null, null);
 
-  void observeDBModification(
-    void Function(Pair<Note?, DBModificationMode>) observer,
-    bool add
-  ) => _observable.observe(observer, add);
+  void observeDBModification(void Function(void) observer, bool add) =>
+    _observable.observe(observer, add);
 
   Future<List<Note>> searchByTitle(String title) async => (
     await _kernel.interop

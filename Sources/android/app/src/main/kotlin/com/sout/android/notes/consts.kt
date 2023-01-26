@@ -1,6 +1,6 @@
 /**
  * Created by VadNiks on Aug 04 2022
- * Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+ * Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
  *
  * This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
  * No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -15,6 +15,7 @@ const val NUM_UNDEF = -1
 const val NUM_UNDEF_L = -1L
 const val NUM_ZERO = 0
 const val NUM_ZERO_L = 0L
+const val UNDEF_LONG = -0x100000000 // used as a long type stub in the dart code cuz it doesn't have long types
 const val PACKAGE = BuildConfig.APPLICATION_ID
 const val STR_UNDEF = "<UNDEFINED>"
 const val STR_EMPTY = ""

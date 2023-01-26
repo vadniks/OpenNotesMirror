@@ -1,6 +1,6 @@
 /**
  * Created by VadNiks on Aug 11 2022
- * Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+ * Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
  *
  * This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
  * No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -24,7 +24,7 @@ class Observable<P, R> {
     suspend fun notify(parameter: P, callback: ((R) -> Unit)?) =
         observers.forEach { if (callback != null) callback(it(parameter)) else it(parameter) }
 
-    @Suppress("RedundantSuspendModifier")
+    @Suppress("unused")
     @WorkerThread
-    suspend fun reset() = observers.clear()
+    fun reset() = observers.clear()
 }

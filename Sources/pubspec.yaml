@@ -1,5 +1,5 @@
 # Created by VadNiks on Jul 31 2022
-# Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+# Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 #
 # This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
 # No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -11,7 +11,7 @@ name: notes_next_gen
 
 publish_to: 'none'
 
-version: 3.1.0+20
+version: 3.2.0+20
 
 environment:
   sdk: ">=2.18.6 <3.0.0"

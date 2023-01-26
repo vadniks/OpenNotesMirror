@@ -1,6 +1,6 @@
 /**
  * Created by VadNiks on Aug 03 2022
- * Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+ * Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
  *
  * This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
  * No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -20,7 +20,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 
 @WorkerThread
-@Database(entities = [Note::class], version = DB_VERSION)
+@Database(entities = [Note::class], version = ACTUAL_DB_VERSION)
 @TypeConverters(NoteConverters::class)
 abstract class NoteDatabase : RoomDatabase() {
     protected abstract val dao: NoteDao
@@ -33,10 +33,10 @@ abstract class NoteDatabase : RoomDatabase() {
         @Suppress("RedundantSuspendModifier")
         suspend fun getDatabase( // The only instance is saved in the DatabaseManager, it gets dropped and replaced with the new one when re-initializing, so it's still a singleton
             context: Context,
-            migration: Migration
+            vararg migration: Migration
         ): NoteDatabase = Room
             .databaseBuilder(context, NoteDatabase::class.java, DB_NAME)
-            .addMigrations(migration)
+            .addMigrations(*migration)
             .fallbackToDestructiveMigration()
             .build()
     }

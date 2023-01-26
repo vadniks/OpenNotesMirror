@@ -1,5 +1,5 @@
 /// Created by VadNiks on Aug 02 2022
-/// Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+/// Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 ///
 /// This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
 /// No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -22,14 +22,29 @@ import 'package:flutter/material.dart';
 @sealed
 class ScreenPresenter extends AbsPresenter<Screen> {
   static const _DARK_SECONDARY_COLOR = Color(0xFF0F0F0F);
-  
+  static const _ON_THEME_CHANGED_METHOD = 'onThemeChange';
+  static const _IS_DARK_THEME_METHOD = 'isDarkTheme';
+  bool _isDark = false;
+
   MaterialColor _makeBlack() {
     Map<int, Color> map = { 50: Colors.black };
     for (int i = 100; i <= 900; map[i] = Colors.black, i += 100);
     return MaterialColor(Colors.black.value, map);
   }
 
-  ScreenPresenter(Object kernel) : super(kernel, Presenters.SCREEN);
+  ScreenPresenter(Object kernel) : super(kernel, Presenters.SCREEN) {
+    super.kernel.interop.observeMethodHandling(_handleKotlinMethod, true);
+    super.kernel.interop.callKotlinMethod(_IS_DARK_THEME_METHOD, null)
+      .then((isDark) => setState(() =>_isDark = isDark));
+  }
+
+  Future<bool> _handleKotlinMethod(MethodCall call) async {
+    if (call.method == _ON_THEME_CHANGED_METHOD) {
+      setState(() => _isDark = call.arguments);
+      return true;
+    } else
+      return false;
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -40,11 +55,11 @@ class ScreenPresenter extends AbsPresenter<Screen> {
         primarySwatch: Colors.green,
         accentColor: Colors.greenAccent
       ),
-      primarySwatch: SchedulerBinding.instance.window.platformBrightness == Brightness.light
+      primarySwatch: !_isDark && SchedulerBinding.instance.window.platformBrightness == Brightness.light
         ? Colors.green
         : _makeBlack()
     ),
-    themeMode: ThemeMode.system,
+    themeMode: _isDark ? ThemeMode.dark : ThemeMode.system,
     darkTheme: ThemeData.dark().copyWith(
       primaryColor: Colors.cyan,
       brightness: Brightness.dark,
@@ -58,7 +73,8 @@ class ScreenPresenter extends AbsPresenter<Screen> {
       colorScheme: const ColorScheme.dark(
         primary: Colors.cyan,
         surface: _DARK_SECONDARY_COLOR,
-        onSecondary: _DARK_SECONDARY_COLOR
+        onSecondary: _DARK_SECONDARY_COLOR,
+        onSurface: Colors.white
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: _DARK_SECONDARY_COLOR,

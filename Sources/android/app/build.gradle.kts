@@ -1,6 +1,6 @@
 /**
  * Created by VadNiks on Jul 31 2022
- * Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+ * Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
  *
  * This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
  * No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -38,13 +38,13 @@ apply(from = "flutter.gradle")
 
 android {
     compileSdk = 33
-    ndkVersion = "25.0.8775105"
+    ndkVersion = "25.1.8937393"
 
     signingConfigs {
         register("release") {
-            val jks = File(projectDir.parent, "").readLines()
+            val jks = File(projectDir.parent, "jks.txt").readLines()
 
-            storeFile = file("")
+            storeFile = file("/data/Downloads/keyForApp3.jks")
             storePassword = jks[0]
             keyAlias = jks[1]
             keyPassword = jks[2]
@@ -100,7 +100,7 @@ android {
             proguardFiles += arrayOf(getDefaultProguardFile("proguard-android-optimize.txt"), File("proguard-rules.pro"))
         }
     }
-    buildToolsVersion = "30.0.3"
+    buildToolsVersion = "33.0.1"
     namespace = "com.sout.android.notes"
 }
 
@@ -108,9 +108,9 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.10")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("androidx.core:core-ktx:1.9.0")
-    implementation("androidx.room:room-runtime:2.4.3")
-    implementation("androidx.room:room-ktx:2.4.3")
+    implementation("androidx.room:room-runtime:2.5.0")
+    implementation("androidx.room:room-ktx:2.5.0")
 
-    annotationProcessor("androidx.room:room-compiler:2.4.3")
-    kapt("androidx.room:room-compiler:2.4.3")
+    annotationProcessor("androidx.room:room-compiler:2.5.0")
+    kapt("androidx.room:room-compiler:2.5.0")
 }

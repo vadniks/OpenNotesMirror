@@ -1,6 +1,6 @@
 /**
  * Created by VadNiks on Aug 03 2022
- * Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+ * Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
  *
  * This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
  * No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -18,7 +18,7 @@ import com.sout.android.notes.mvp.model.db.*
 
 @WorkerThread
 @Dao
-interface NoteDao {
+interface NoteDao { // Thing that I hate the most about Kotlin is that it doesn't have package-private modifier (internal isn't the equivalent) for some some reason (I don't agree with language developers' position from their explanation)
 
     @RawQuery
     suspend fun getNotes(query: SupportSQLiteQuery): List<Note>
@@ -37,6 +37,9 @@ interface NoteDao {
 
     @Query("select * from $DB_NAME where $REMINDER_EXTRA is not null order by $ID asc")
     suspend fun getNotesWithReminders(): List<Note>
+
+    @Query("select $EDIT_MILLIS from $DB_NAME where $ID = :$ID")
+    suspend fun getAddMillis(id: Int): Long
 
     @Query("delete from $DB_NAME where $ID = :$ID")
     suspend fun deleteById(id: Int): Int

@@ -1,6 +1,6 @@
 /**
  * Created by VadNiks on Aug 01 2022
- * Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+ * Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
  *
  * This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
  * No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -15,6 +15,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.widget.Toast
 import androidx.annotation.Keep
 import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
@@ -52,6 +53,9 @@ class Kernel @UiThread constructor(private val contextGetter: () -> Context) : A
         flags = Intent.FLAG_FROM_BACKGROUND or Intent.FLAG_ACTIVITY_SINGLE_TOP
     }
 
+    @UiThread
+    fun showToast(message: String) = Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+
     private fun init() {
         if (!mainScope.isActive) mainScope = MainScope()
         launchInBackground { databaseManager.init() }
@@ -80,7 +84,10 @@ class Kernel @UiThread constructor(private val contextGetter: () -> Context) : A
 
     @UiThread
     fun onActivityDestroy() {
-        if (isFinishingPreviousActivity) return
+        if (isFinishingPreviousActivity) {
+            isFinishingPreviousActivity = false
+            return
+        }
         mainScope.cancel()
         exitProcess(0)
     }

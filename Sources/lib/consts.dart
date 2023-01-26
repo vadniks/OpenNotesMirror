@@ -1,5 +1,5 @@
 /// Created by VadNiks on Jul 31 2022
-/// Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+/// Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 ///
 /// This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
 /// No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -14,7 +14,7 @@ const APP_NAME = 'OpenNotes',
   EDIT_PAGE_TITLE = 'Edit note',
   DRAW_PAGE_TITLE = 'Draw note',
   PACKAGE_NAME = 'com.sout.android.notes',
-  VERSION = '3.1.0';
+  VERSION = '3.2.0';
 
 const ROUTE_MAIN = '/',
   ROUTE_EDIT = '/e',
@@ -77,7 +77,7 @@ const SAVE = 'Save',
   CURRENT_SORT_MODE = 'Current sort mode is: ',
   SORT_BY_ID = 'Sort by identificator',
   SORT_BY_TITLE = 'Sort  by title',
-  ASC = 'Ask',
+  ASC = 'Asc',
   DESC = 'Desc',
   ASCENDING = 'Ascending',
   DESCENDING = 'Descending',
@@ -98,6 +98,20 @@ const SAVE = 'Save',
   INCORRECT_DATE_OR_TIME = 'Incorrect date or time set',
   INCORRECT_TRIGGER_OR_PERIOD = 'Incorrect trigger date/time or period values set',
   NOTIFICATION_WILL_APPEAR_AT = ', notification will appear at ',
+  ADDED_AT = 'Added at ',
+  EDITED_AT = 'Edited at ',
+  JUST_NOW = 'just now',
+  CREATED_UPDATED_AT = 'Created/updated timestamp',
+  DECORATE_SELECTED_TEXT = 'Decorate selected text',
+  FONT_STYLE = 'Font style',
+  FONT_COLOR = 'Font color',
+  RESET_ALL = 'Reset all',
+  EXPORT_DATABASE = 'Export database',
+  DATABASE_EXPORT_OR_IMPORT_IS_IN_PROGRESS = 'Database is being exported/imported',
+  DATABASE_EXPORTED_OR_IMPORTED = 'Database has been exported or imported',
+  IMPORT_FROM_DATABASE = 'Import from database',
+  CHANGE_THEME = 'Change theme manually',
+  CHANGE_THEME_HINT = 'Only for Android 9 and lower',
   LOGO_ASCII = '''
    ____                   _   __      __           
   / __ \\____  ___  ____  / | / /___  / /____  _____

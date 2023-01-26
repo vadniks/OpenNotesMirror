@@ -36,3 +36,6 @@ This is a next generation of the my Notes application
 ![Widgets](Screenshots/e.png "Widgets")
 ![Dark main page](Screenshots/f.png "Dark main page")
 ![Dark Edit page](Screenshots/g.png "Dark edit page")
+![Widgets again](Screenshots/h.png "Widgets again")
+![Text decorations in the light theme](Screenshots/i.png "Text decorations in the light theme")
+![Text decorations in the dark theme](Screenshots/j.png "Text decorations in the dark theme")

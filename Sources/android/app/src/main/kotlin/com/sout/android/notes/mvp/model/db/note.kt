@@ -1,6 +1,6 @@
 /**
  * Created by VadNiks on Aug 03 2022
- * Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+ * Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
  *
  * This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
  * No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -13,6 +13,7 @@ package com.sout.android.notes.mvp.model.db
 
 import androidx.annotation.ColorInt
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
 import com.sout.android.notes.mvp.model.reminders.ReminderManager
@@ -20,38 +21,46 @@ import java.io.*
 import kotlin.math.pow
 
 const val DB_NAME = "notes"
-const val DB_VERSION = 6
-const val OLD_DB_VERSION = 5
+const val ACTUAL_DB_VERSION = 7
 const val ID = "id"
 const val TITLE = "title"
 const val TEXT = "text"
+const val ADD_MILLIS = "addMillis"
+const val EDIT_MILLIS = "editMillis"
 const val REMINDER_EXTRA = "reminderExtra"
 const val REMINDER_TYPE = "reminderType"
 const val COLOR = "color"
+const val SPANS = "spans"
 
-@Entity(tableName = DB_NAME)
+@Entity(tableName = DB_NAME, indices = [Index(value = [TITLE])])
 data class Note(
     @PrimaryKey(autoGenerate = true) val id: Int?,
     val title: String,
     val text: String,
+    val addMillis: Long,
+    val editMillis: Long = addMillis,
     val reminderExtra: AbsReminderExtra? = null,
-    val color: NoteColor? = null
-) : Serializable { companion object {
-
-    fun fromMap(map: Map<String, Any?>): Note = Note(
-        map[ID] as Int?,
-        (map[TITLE] as String?)!!,
-        (map[TEXT] as String?)!!,
-        color = NoteColor.values().find(fun(value) = value.value == (map[COLOR] as Long?)?.toInt())
-    )
-} }
+    val color: NoteColor? = null,
+    val spans: String? = null
+) : Serializable { companion object { fun fromMap(map: Map<String, Any?>): Note = Note(
+    map[ID] as Int?,
+    (map[TITLE] as String?)!!,
+    (map[TEXT] as String?)!!,
+    (map[ADD_MILLIS] as Long?)!!,
+    (map[EDIT_MILLIS] as Long?)!!,
+    color = NoteColor.values().find(fun(value) = value.value == (map[COLOR] as Long?)?.toInt()),
+    spans = map[SPANS] as String?
+) } }
 
 fun Note.toMap(): Map<String, Any?> = mapOf(
     ID to id,
     TITLE to title,
     TEXT to text,
+    ADD_MILLIS to addMillis,
+    EDIT_MILLIS to editMillis,
     REMINDER_TYPE to reminderExtra?.type?.value,
-    COLOR to color?.value?.toUInt()?.toLong()
+    COLOR to color?.value?.toUInt()?.toLong(),
+    SPANS to spans
 )
 
 abstract class AbsReminderExtra(
@@ -59,8 +68,8 @@ abstract class AbsReminderExtra(
     open val type: ReminderManager.ReminderType
 ) : Serializable
 
-enum class NoteColor(@ColorInt val value: Int) {
-    RED        (0xFFF44336u.toInt()),
+enum class NoteColor(@ColorInt val value: Int) { // TODO: add color picker instead of hardcoding color values
+    RED        (0xFFF44336u.toInt()), // unsigned type is used cuz kotlin compiler doesn't allow placing numeric values which are higher than the int.max (2147483647) but still represented with 32 bits into int types directly although java does allow
     PINK       (0xFFE91E63u.toInt()),
     PURPLE     (0xFF9C27B0u.toInt()),
     DEEP_PURPLE(0xFF673AB7u.toInt()),
@@ -82,14 +91,14 @@ enum class NoteColor(@ColorInt val value: Int) {
     BLACK      (0xFF000000u.toInt()),
     WHITE      (0xFFFFFFFFu.toInt());
 
-    private fun linearize(component: Double): Double =
-        if (component <= 0.03928) component / 12.92
-        else ((component + 0.055) / 1.055).pow(2.4)
-
     fun isDark(): Boolean {
         val red = 0x00ff0000 and value shr 16
         val green = 0x0000ff00 and value shr 8
         val blue = 0x000000ff and value shr 0
+
+        fun linearize(component: Double) =
+            if (component <= 0.03928) component / 12.92
+            else ((component + 0.055) / 1.055).pow(2.4)
 
         val r = linearize(red.toDouble() / 0xFF)
         val g = linearize(green.toDouble() / 0xFF)
@@ -102,17 +111,12 @@ enum class NoteColor(@ColorInt val value: Int) {
 
 class NoteConverters {
 
-    private fun serializableToBytes(obj: Serializable): ByteArray = ByteArrayOutputStream()
-        .apply { ObjectOutputStream(this).writeObject(obj) }.toByteArray()
-
-    private fun bytesToSerializable(bytes: ByteArray): Serializable =
-        ObjectInputStream(ByteArrayInputStream(bytes)).readObject() as Serializable
-
     @TypeConverter
     fun bytesToAbsReminderExtra(bytes: ByteArray?): AbsReminderExtra? =
-        if (bytes != null) bytesToSerializable(bytes) as AbsReminderExtra else null
+        if (bytes != null) ObjectInputStream(ByteArrayInputStream(bytes)).readObject() as AbsReminderExtra else null
 
     @TypeConverter
-    fun absReminderExtraToBytes(obj: AbsReminderExtra?): ByteArray? =
-        if (obj != null) serializableToBytes(obj) else null
+    fun absReminderExtraToBytes(obj: AbsReminderExtra?): ByteArray? = if (obj != null)
+        ByteArrayOutputStream().apply { ObjectOutputStream(this).writeObject(obj) }.toByteArray()
+    else null
 }

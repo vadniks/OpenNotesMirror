@@ -1,11 +1,13 @@
 /// Created by VadNiks on Aug 02 2022
-/// Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+/// Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 ///
 /// This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
 /// No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
 /// without author's written permission, are strongly prohibited.
 ///
 /// Source codes are opened only for review.
+
+// ignore_for_file: curly_braces_in_flow_control_structures
 
 import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
@@ -25,6 +27,7 @@ abstract class AbsPresenter<V extends AbsPage> extends State<V> {
   @mustCallSuper
   AbsPresenter(Object kernel, this.presenter) { this.kernel = kernel as Kernel; }
 
+  @protected
   @mustCallSuper
   @override
   void initState() {
@@ -32,6 +35,7 @@ abstract class AbsPresenter<V extends AbsPage> extends State<V> {
     kernel.setPresenter(this, presenter);
   }
 
+  @protected
   @mustCallSuper
   @override
   void dispose() {
@@ -39,6 +43,7 @@ abstract class AbsPresenter<V extends AbsPage> extends State<V> {
     super.dispose();
   }
 
+  @protected
   @nonVirtual
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSnackBar(
     String text,
@@ -61,9 +66,26 @@ abstract class AbsPresenter<V extends AbsPage> extends State<V> {
     duration: duration,
   ));
 
+  @protected
   @nonVirtual
   Divider makeDividerForBottomSheet() => const Divider(
     height: 1.0,
     thickness: 1.0
   );
+
+  @protected
+  @nonVirtual
+  void popTimes(int times) { for (var _ = 0; _ < times; _++) navigator.pop(); }
+
+  @protected
+  @nonVirtual
+  ColorScheme get colorScheme => Theme.of(context).colorScheme;
+
+  @protected
+  @nonVirtual
+  bool get isLightTheme => Theme.of(context).brightness == Brightness.light;
+
+  @protected
+  @nonVirtual
+  Color get textColor => colorScheme.onSurface;
 }

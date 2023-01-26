@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 6,
-    "identityHash": "d5ad14564129b393ae5e676fb51198a7",
+    "version": 7,
+    "identityHash": "051e311e4bcea0cc897a61a42c1ecfa4",
     "entities": [
       {
         "tableName": "notes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `title` TEXT NOT NULL, `text` TEXT NOT NULL, `reminderExtra` BLOB, `color` TEXT)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `title` TEXT NOT NULL, `text` TEXT NOT NULL, `addMillis` INTEGER NOT NULL, `editMillis` INTEGER NOT NULL, `reminderExtra` BLOB, `color` TEXT, `spans` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -27,6 +27,18 @@
             "notNull": true
           },
           {
+            "fieldPath": "addMillis",
+            "columnName": "addMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "editMillis",
+            "columnName": "editMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
             "fieldPath": "reminderExtra",
             "columnName": "reminderExtra",
             "affinity": "BLOB",
@@ -37,6 +49,12 @@
             "columnName": "color",
             "affinity": "TEXT",
             "notNull": false
+          },
+          {
+            "fieldPath": "spans",
+            "columnName": "spans",
+            "affinity": "TEXT",
+            "notNull": false
           }
         ],
         "primaryKey": {
@@ -45,14 +63,24 @@
           ],
           "autoGenerate": true
         },
-        "indices": [],
+        "indices": [
+          {
+            "name": "index_notes_title",
+            "unique": false,
+            "columnNames": [
+              "title"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_title` ON `${TABLE_NAME}` (`title`)"
+          }
+        ],
         "foreignKeys": []
       }
     ],
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd5ad14564129b393ae5e676fb51198a7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '051e311e4bcea0cc897a61a42c1ecfa4')"
     ]
   }
 }

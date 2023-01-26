@@ -1,5 +1,5 @@
 /// Created by VadNiks on Aug 02 2022
-/// Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+/// Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 ///
 /// This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
 /// No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -11,6 +11,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'spannableTextEditingController.dart';
 import '../model/database/NoteColor.dart';
 import 'Presenters.dart';
 import '../model/database/Note.dart';
@@ -23,7 +24,7 @@ import '../consts.dart';
 @sealed
 class EditPagePresenter extends AbsPresenter<EditPage> {
   late TextEditingController _titleController;
-  late TextEditingController _textController;
+  late SpannableTextEditingController _textController;
   Note? _noteParameter;
   NoteColor? _color;
   static const _SEND_METHOD = 'send';
@@ -41,17 +42,13 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
 
   EditPagePresenter(Object kernel) : super(kernel, Presenters.EDIT);
 
-  void _onSaveClicked() {
+  Future<void> _onSaveClicked() async {
     if (_title.isEmpty || _text.isEmpty) {
       showSnackBar(TEXTS_ARE_EMPTY);
       return;
     }
 
-    var note = Note(
-      title: _title,
-      text: _text,
-      color: _getColor()
-    );
+    var note = await _makeNote(null);
 
     if (!_isEditing)
       kernel.dbManager.insertNote(note).then((id) => _afterSave(id, note));
@@ -126,29 +123,28 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     );
   }
 
-  Note _makeNote(ReminderType type) => Note(
-      id: _noteParameter?.id,
-      title: _titleController.text,
-      text: _textController.text,
-      reminderType: type,
-      color: _getColor()
+  Future<Note> _makeNote(ReminderType? type) async => Note(
+    id: _noteParameter?.id,
+    title: _title,
+    text: _text,
+    reminderType: type,
+    color: _getColor(),
+    spans: await _textController.serialize()
   );
 
-  void _attachNotification() {
-    navigator.pop(); // TODO: create smth like navigator.pop(howManyTimes: int)
-    navigator.pop();
+  Future<void> _attachNotification() async {
+    popTimes(2);
 
-    final note = _makeNote(ReminderType.ATTACHED);
+    final note = await _makeNote(ReminderType.ATTACHED);
     kernel.reminderManager
       .createOrUpdateReminder(note, null, null)
       .then((id) => _afterSave(id, note));
   }
 
-  void _timedNotification() {
-    navigator.pop();
-    navigator.pop();
+  Future<void> _timedNotification() async {
+    popTimes(2);
 
-    final note = _makeNote(ReminderType.TIMED);
+    final note = await _makeNote(ReminderType.TIMED);
     _pickDate(CHOOSE_DATE, (date) =>
       _pickTime(CHOOSE_TIME, (time) {
         if (date == null || time == null) {
@@ -167,7 +163,7 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
         }
         kernel.reminderManager
           .createOrUpdateReminder(note, trigger.millisecondsSinceEpoch, null)
-          .then((id) => _afterSave(id, note, trigger)); // TODO: show trigger time in the snackbar when notifying about successful save # DONE
+          .then((id) => _afterSave(id, note, trigger));
       })
     );
   }
@@ -204,22 +200,20 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     minutes: _chosenPeriodMinutes
   ).inMilliseconds;
 
-  void _doScheduleNotification() {
+  Future<void> _doScheduleNotification() async {
     final trigger = _calcTrigger();
     final period = _calcPeriod();
     final now = DateTime.now().millisecondsSinceEpoch;
     const minute = 1000 * 60;
 
     if (trigger - now < minute || period - minute < 0) {
-      showSnackBar(INCORRECT_TRIGGER_OR_PERIOD); //(trigger - now).toString() + ' ' + (period - minute).toString() + ' ' + minute.toString() + ' ' + trigger.toString() + ' ' + period.toString());
+      showSnackBar(INCORRECT_TRIGGER_OR_PERIOD);
       return;
     }
 
-    navigator.pop();
-    navigator.pop();
-    navigator.pop();
+    popTimes(3);
 
-    final note = _makeNote(ReminderType.SCHEDULED);
+    final note = await _makeNote(ReminderType.SCHEDULED);
     kernel.reminderManager
       .createOrUpdateReminder(note, trigger, period)
       .then((id) => _afterSave(id, note));
@@ -287,16 +281,7 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
               onChanged: (days) => stateSetter(() { if (days != null) _chosenPeriodDays = days; })
             )
           ]
-        )), // TODO: draw these items as tree nodes
-        /*
-        trigger
-        | date
-        | time
-        period
-        | days
-        | hours
-        | minutes
-        */
+        )),
         ListTile(title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -351,14 +336,14 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     .getReminderDetails(_noteParameter?.id)
     .then((details) => showModalBottomSheet(
       context: context,
-      builder: (builder) => Column(children: [
+      builder: (builder) => SingleChildScrollView(child: Column(children: [
         makeDividerForBottomSheet(),
         ListTile(
           title: const Text(DETAILS),
           subtitle: Text(
             details ?? TIMED_OR_SCHEDULED_IS_NOT_SET,
             textAlign: TextAlign.justify
-          ),
+          )
         ),
         makeDividerForBottomSheet(),
         ListTile(
@@ -380,12 +365,105 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
         ListTile(
           title: const Text(SEND),
           onTap: _send,
+        ),
+        ListTile(
+          title: const Text(CREATED_UPDATED_AT),
+          onTap: _noteParameter == null ? null : _showTimestamp,
+        ),
+        ListTile(
+          title: const Text(DECORATE_SELECTED_TEXT),
+          onTap: _decorateSelectedText,
         )
-      ])
+      ]))
     ));
 
+  Future<void> _decorateSelectedText() async {
+    if (_textController.selection.isCollapsed) {
+      navigator.pop();
+      showSnackBar(NOTHING_SELECTED);
+      return;
+    }
+
+    var style = FontStyleExtended.NORMAL, color = NoteColor.NONE;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => StatefulBuilder(builder: (_, stateSetter) => Column(children: [
+        makeDividerForBottomSheet(),
+        ListTile(
+          title: const Text(DECORATE_SELECTED_TEXT),
+          trailing: TextButton(
+            onPressed: () {
+              popTimes(2);
+              _textController.setSpan(style, color);
+            },
+            child: const Text(DONE)
+          ),
+        ),
+        makeDividerForBottomSheet(),
+        ListTile(
+          title: const Text(FONT_STYLE),
+          trailing: DropdownButton<FontStyleExtended>(
+            value: style,
+            items: FontStyleExtended.values.map((element) => DropdownMenuItem(
+              value: element,
+              child: Text(
+                element.name,
+                style: TextStyle(
+                  fontStyle: element.style,
+                  fontWeight: element.weight
+                ),
+              )
+            )).toList(),
+            onChanged: (chosen) => stateSetter(() => style = chosen ?? FontStyleExtended.NORMAL),
+          ),
+        ),
+        ListTile(
+          title: const Text(FONT_COLOR),
+          trailing: DropdownButton<NoteColor>(
+            value: color,
+            items: [for (final element in NoteColor.values)
+              if (element != NoteColor.BLACK && element != NoteColor.WHITE)
+                DropdownMenuItem(
+                  value: element,
+                  child: Text(
+                    element.name,
+                    style: TextStyle(color: element.value == null ? null : Color(element.value!))
+                  )
+                )
+            ].toList(),
+            onChanged: (chosen) => stateSetter(() => color = chosen ?? NoteColor.NONE),
+          ),
+        ),
+        ListTile(
+          title: const Text(RESET_ALL),
+          onTap: () {
+            _textController.clearSpans();
+            popTimes(2);
+          },
+        )
+      ]))
+    );
+  }
+
+  void _showTimestamp() {
+    navigator.pop();
+
+    final added = _noteParameter!.addMillis,
+      edited = _noteParameter!.editMillis;
+
+    showSnackBar(
+      '$ADDED_AT ${added < 1000
+        ? JUST_NOW
+        : DateTime.fromMillisecondsSinceEpoch(added)}\n'
+      '$EDITED_AT ${edited < 1000
+        ? JUST_NOW
+        : DateTime.fromMillisecondsSinceEpoch(edited)}'
+    );
+  }
+
   Future<void> _send() async => kernel.interop.callKotlinMethod(
-    _SEND_METHOD, [_titleController.text, _textController.text]
+    _SEND_METHOD, [_title, _text]
   );
 
   NoteColor? _getColor() => _color == null
@@ -393,10 +471,8 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     : _color == NoteColor.NONE ? null : _color;
 
   void _setColor(NoteColor? color) {
-    navigator.pop();
-    navigator.pop();
+    popTimes(2);
     _color = color;
-    showSnackBar(COLOR_SET);
   }
 
   Row _makeRowOfColorAndText(Color color, String text, bool reversed) {
@@ -420,13 +496,19 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     context: context,
     builder: (context) => ListView(children: [
       makeDividerForBottomSheet(),
-      ListTile(title: _makeRowOfColorAndText(
-        _noteParameter?.color?.value != null
-          ? Color(_noteParameter!.color!.value!)
-          : Colors.transparent,
-        CURRENT_COLOR,
-        true
-      )),
+      ListTile(
+        title: _makeRowOfColorAndText(
+          _noteParameter?.color?.value != null
+            ? Color(_noteParameter!.color!.value!)
+            : Colors.transparent,
+          CURRENT_COLOR,
+          true
+        ),
+        subtitle: const Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text(COLOR_SET)
+        ),
+      ),
       makeDividerForBottomSheet(),
       ...NoteColor.values.map((noteColor) => ListTile(
         title: _makeRowOfColorAndText(
@@ -457,7 +539,11 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
     _titleController = TextEditingController();
     _titleController.text = _noteParameter?.title ?? EMPTY_STRING;
 
-    _textController = TextEditingController();
+    _textController = SpannableTextEditingController(
+      textColor,
+      _noteParameter?.spans,
+      _noteParameter?.text
+    );
     _textController.addListener(_onTextChanged);
     _textController.text = _noteParameter?.text ?? EMPTY_STRING;
 
@@ -474,12 +560,12 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
   }
 
   Future<void> _onTextChanged() async {
-    if (!_isEditing) _titleController.text = _textController.text;
+    if (!_isEditing) _titleController.text = _text.replaceAll('\n', ' ');
 
     try { await kernel.interop.callKotlinMethod(_SAVE_STATE_METHOD, Note(
       id: _noteParameter?.id,
-      title: _titleController.text,
-      text: _textController.text,
+      title: _title,
+      text: _text,
       color: _getColor()
     ).toMap()); } catch (_) {} // ActivityPresenter removes requestProcessor when activity stops, in order to avoid throwing 'saveState method impl not found' when activity stops while keyboard is still shown
   }
@@ -498,8 +584,8 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
   @override
   Widget build(BuildContext context) => WillPopScope(
     onWillPop: () async {
-      final title = _titleController.text;
-      final text = _textController.text;
+      final title = _title;
+      final text = _text;
       if (_noteParameter != null || title.isEmpty && text.isEmpty) return true;
 
       kernel.callMainPresenter((presenter) => presenter.showSnackBar(
@@ -564,6 +650,7 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
         controller: _textController,
         autofocus: !_isEditing,
         decoration: const InputDecoration(hintText: TEXT_STRING),
+        // selectionControls: , // TODO
       ))])
     )
   );

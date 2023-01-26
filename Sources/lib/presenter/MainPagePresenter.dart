@@ -1,5 +1,5 @@
 /// Created by VadNiks on Aug 02 2022
-/// Copyright (C) 2018-2022 Vad Nik (https://github.com/vadniks).
+/// Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 ///
 /// This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
 /// No license provided, so distribution, redistribution, modifying and/or commercial use of this code,
@@ -16,8 +16,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../model/Observable.dart';
 import 'Presenters.dart';
-import '../model/Pair.dart';
-import '../model/database/DBModificationMode.dart';
 import '../model/database/Note.dart';
 import '../view/MainPage.dart';
 import '../consts.dart';
@@ -37,9 +35,12 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
   final List<int> _selectedIds = [];
   var _isSelecting = false;
   var _currentOrder = false;
+  static const _EXPORT_DATABASE_METHOD = 'exportDatabase';
+  static const _IMPORT_DATABASE_METHOD = 'importDatabase';
+  static const _CHANGE_THEME_METHOD = 'changeTheme';
+  var _isDatabaseBeingExportedOrImported = false;
 
   bool get _isConfiguringWidget => _widgetId != null;
-
   bool get _isSearching => _searchController != null;
 
   static void observeMainPageLaunch(void Function(MainPagePresenter) observer, bool add) =>
@@ -82,14 +83,15 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
     _searchController?.removeListener(_onSearch);
   }
 
-  Future<void> _resetList() async => setState(() {
+  Future<void> _resetList() async { // TODO: rename to clearList
     _items.clear();
-    _from = 0;
-    _hasFetched = false;
-  });
+    setState(() {
+      _from = 0;
+      _hasFetched = false;
+    });
+  }
 
-  Future<void> _onDBModified(Pair<Note?, DBModificationMode> _) async {
-    if (_isSearching || _isConfiguringWidget || _isSelecting) return;
+  Future<void> _onDBModified(void _) async {
     await _resetList();
     await _loadItems(true);
   }
@@ -157,7 +159,7 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
   }
 
   Widget _makeItem(Note note, BuildContext context) => Material(child: ListTile(
-    onLongPress: () => setState(() {
+    onLongPress: () => _isConfiguringWidget || _isSelecting ? null : setState(() {
       _isSelecting = true;
       note.reminderType == null ? _selectedIds.add(note.id!) : showSnackBar(UNABLE_TO_SELECT_REMINDER);
     }),
@@ -206,13 +208,13 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
 
   Future<void> _loadItems(bool firstTIme) async {
     if (!firstTIme
-      && _controller.position.extentAfter >= 30
+      && _controller.position.extentAfter >= 51
       || _isFetching
       || _isSearching) return;
     setState(() => _isFetching = true);
 
     final items = await kernel.dbManager.fetchNotes(_from, ITEMS_FETCH_AMOUNT);
-    if (items.isNotEmpty) setState(() => _items.addAll(items));
+    if (items.isNotEmpty) for (final item in items) setState(() => _items.add(item));
 
     setState(() {
       _isFetching = false;
@@ -222,8 +224,7 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
   }
 
   Future<void> _setSortMode(int which, bool order) async {
-    navigator.pop();
-    navigator.pop();
+    popTimes(2);
     await kernel.dbManager.setSortMode(which, order);
     _refresh();
   }
@@ -235,7 +236,7 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
       builder: (_) => StatefulBuilder(builder: (_, stateSetter) => Column(children: [
         makeDividerForBottomSheet(),
         ListTile(
-          title: Text('$CURRENT_SORT_MODE${sortMode.a == 0 ? SORT_BY_ID : SORT_BY_TITLE}'),
+          title: Text('$CURRENT_SORT_MODE${sortMode.a == 0 ? SORT_BY_ID : SORT_BY_TITLE}'), // TODO: put sort modes into enum
           trailing: TextButton(
             child: Text(
               _currentOrder ? DESC : ASC,
@@ -295,7 +296,7 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
               RichText(text: TextSpan(
                 text: SOURCES_LOCATED_AT,
                 style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.light
+                  color: isLightTheme
                     ? Colors.black54
                     : Colors.white70,
                   fontSize: 12
@@ -316,11 +317,49 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
             ])
           )]
         ),
+      ),
+      ListTile(
+        title: const Text(EXPORT_DATABASE),
+        onTap: () {
+          navigator.pop();
+          setState(() => _isDatabaseBeingExportedOrImported = true);
+          kernel.interop.callKotlinMethod(_EXPORT_DATABASE_METHOD, null);
+        },
+      ),
+      ListTile(
+        title: const Text(IMPORT_FROM_DATABASE),
+        onTap: () {
+          navigator.pop();
+          setState(() => _isDatabaseBeingExportedOrImported = true);
+          kernel.interop.callKotlinMethod(_IMPORT_DATABASE_METHOD, null);
+        },
+      ),
+      ListTile(
+        title: const Text(CHANGE_THEME),
+        subtitle: const Text(CHANGE_THEME_HINT),
+        onTap: () {
+          kernel.interop.callKotlinMethod(_CHANGE_THEME_METHOD, null);
+          navigator.pop();
+        }
       )
     ])
   );
 
-  Future<void> _deleteSelected() async { // TODO: check if selected contains reminders and if contains - forbid deleting # DONE - IMPOSSIBLE TO SELECT REMINDER
+  void onDatabaseExportedOrImported(bool successful) {
+    setState(() => _isDatabaseBeingExportedOrImported = false);
+    showSnackBar(successful ? DATABASE_EXPORTED_OR_IMPORTED : ERROR_OCCURRED);
+    _refresh();
+  }
+
+  Widget _showDbExportingImportingStub() => Center(child: Column(children: const [
+    LinearProgressIndicator(),
+    Expanded(child: Center(child: Text(
+      DATABASE_EXPORT_OR_IMPORT_IS_IN_PROGRESS,
+      style: TextStyle(fontSize: 18),
+    )))
+  ]));
+
+  void _deleteSelected() {
     if (_selectedIds.isEmpty) {
       showSnackBar(NOTHING_SELECTED);
       return;
@@ -332,8 +371,7 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
       _isSelecting = false;
     });
 
-    await kernel.dbManager.deleteSelected(ids);
-    Timer.run(_refresh);
+    kernel.dbManager.deleteSelected(ids);
   }
 
   Future<void> _refresh() async {
@@ -371,7 +409,7 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
             hintStyle: TextStyle(color: Colors.white38)
           )
         )),
-      actions: [
+      actions: _isDatabaseBeingExportedOrImported ? null : [
         if (_isSelecting) IconButton(
           onPressed: _deleteSelected,
           icon: const Icon(Icons.delete)
@@ -386,7 +424,7 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
         )
       ],
     ),
-    body: _hasFetched && _items.isEmpty
+    body: _isDatabaseBeingExportedOrImported ? _showDbExportingImportingStub() : _hasFetched && _items.isEmpty
       ? Center(child: Text(
         !_isSearching ? EMPTY_TEXT : NOT_FOUND,
         style: const TextStyle(fontSize: 18))
@@ -408,7 +446,7 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
         ),
       ))
     ]),
-    floatingActionButton: _isConfiguringWidget || _isSearching ? null : FloatingActionButton(
+    floatingActionButton: _isOperationInProcess || _isDatabaseBeingExportedOrImported ? null : FloatingActionButton(
       onPressed: () => launchEditPage(null),
       tooltip: CREATE,
       child: const Icon(Icons.add),
