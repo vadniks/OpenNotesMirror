@@ -21,6 +21,7 @@ import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import com.sout.android.notes.COPYRIGHT
 import com.sout.android.notes.PACKAGE
+import com.sout.android.notes.mvp.model.BinaryNoteManager
 import com.sout.android.notes.mvp.presenter.ActivityPresenter
 import com.sout.android.notes.mvp.model.db.DatabaseManager
 import com.sout.android.notes.mvp.model.reminders.ReminderManager
@@ -37,6 +38,7 @@ class Kernel @UiThread constructor(private val contextGetter: () -> Context) : A
     val databaseManager = DatabaseManager(this)
     var activityPresenter = CompletableDeferred<ActivityPresenter>(); private set
     val reminderManager = ReminderManager(this)
+    val binaryNoteManager = BinaryNoteManager(this)
     private var isFinishingPreviousActivity = false
 
     @UiThread

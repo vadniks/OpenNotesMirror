@@ -37,10 +37,16 @@ class Interop @UiThread constructor(private val kernel: Kernel) : AbsSingleton()
         observer: suspend (Pair<MethodCall, MethodChannel.Result>) -> Boolean
     ) = handlers.observe(observer, add)
 
-    @Suppress("RedundantSuspendModifier")
     @WorkerThread
     private suspend fun handleDartMethod(call: MethodCall, result: MethodChannel.Result) {
         var res = false
+
+        if (call.method == LOG_METHOD) { // TODO: debug
+            println("log ${call.arguments as String}")
+            result.success(null)
+            res = true
+        }
+
         handlers.notify(call to result) { res = res or it }
         if (!res) result.notImplemented()
     }
@@ -52,5 +58,6 @@ class Interop @UiThread constructor(private val kernel: Kernel) : AbsSingleton()
     companion object {
         private const val CHANNEL_NAME = "$PACKAGE/channel"
         const val LAUNCH_EDIT_PAGE_METHOD = "launchEditPage"
+        private const val LOG_METHOD = "log"
     }
 }

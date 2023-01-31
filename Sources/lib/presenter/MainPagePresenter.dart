@@ -35,10 +35,11 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
   final List<int> _selectedIds = [];
   var _isSelecting = false;
   var _currentOrder = false;
-  static const _EXPORT_DATABASE_METHOD = 'exportDatabase';
+  static const _EXPORT_DATABASE_METHOD = 'exportDatabase'; // TODO: put in the DatabaseManager
   static const _IMPORT_DATABASE_METHOD = 'importDatabase';
   static const _CHANGE_THEME_METHOD = 'changeTheme';
   var _isDatabaseBeingExportedOrImported = false;
+  var _isFabCollapsed = true;
 
   bool get _isConfiguringWidget => _widgetId != null;
   bool get _isSearching => _searchController != null;
@@ -68,7 +69,8 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
     kernel.dbManager.observeDBModification(_onDBModified, true);
     _controller = ScrollController()..addListener(() => _loadItems(false));
     _loadItems(true);
-    Timer.run(() {
+
+    Timer.run(() { // TODO: move to didChangeDependencies
       _observable.notify(this, null);
       _observable.reset();
     });
@@ -96,13 +98,17 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
     await _loadItems(true);
   }
 
-  void launchEditPage(Note? note) {
+  void _launchPage(String which, Note? note) {
     if (!navigator.canPop())
       navigator.pushNamed(
-        ROUTE_EDIT,
+        which,
         arguments: note
       );
   }
+
+  void launchEditPage(Note? note) => _launchPage(ROUTE_EDIT, note);
+
+  void launchCanvasPage(Note? note) => _launchPage(ROUTE_CANVAS, note); // TODO: make private or implement canvas state saving
 
   bool get _isOperationInProcess => _isConfiguringWidget || _isSearching || _isSelecting;
 
@@ -153,6 +159,11 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
       return;
     }
 
+    if (note?.canvas == true) { // cuz true? (true or null) != true
+      showSnackBar(CANVAS_CANNOT_BE_IN_WIDGET);
+      return;
+    }
+
     final widgetId = _widgetId!;
     setState(() => _widgetId = null);
     kernel.reminderManager.setWidget(note?.id, widgetId);
@@ -161,16 +172,20 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
   Widget _makeItem(Note note, BuildContext context) => Material(child: ListTile(
     onLongPress: () => _isConfiguringWidget || _isSelecting ? null : setState(() {
       _isSelecting = true;
-      note.reminderType == null ? _selectedIds.add(note.id!) : showSnackBar(UNABLE_TO_SELECT_REMINDER);
+      note.reminderType == null
+        ? _selectedIds.add(note.id!)
+        : showSnackBar(UNABLE_TO_SELECT_REMINDER);
     }),
     onTap: () => _isSelecting
-      ? _selectedIds.contains(note.id!)
+      ? _selectedIds.contains(note.id!) // TODO: this is really a shit code, although...
         ? setState(() => _selectedIds.remove(note.id!))
-        : note.reminderType == null 
+        : note.reminderType == null
           ? setState(() => _selectedIds.add(note.id!)) 
           : showSnackBar(UNABLE_TO_SELECT_REMINDER)
       : !_isConfiguringWidget
-        ? launchEditPage(note)
+        ? note.canvas
+          ? launchCanvasPage(note)
+          : launchEditPage(note)
         : _selectForWidget(note),
     title: Text(
       note.title,
@@ -187,15 +202,17 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
   ));
 
   Widget? _makeTrailingForListTile(Note note) {
-    final isTypePresent = note.reminderType != null;
+    final isReminder = note.reminderType != null;
     final isColorPresent = note.color != null;
+    final isBinary = note.canvas;
 
-    return !isTypePresent && !isColorPresent ? null : Column(
+    return !isReminder && !isColorPresent && !isBinary ? null : Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (isTypePresent) Text(note.reminderType!.toString()),
+        if (isReminder) Text(note.reminderType!.toString())
+        else if (isBinary) const Text(CANVAS_FLAG),
         if (isColorPresent) Padding(
-          padding: EdgeInsets.only(top: isTypePresent ? 5 : 0),
+          padding: EdgeInsets.only(top: isReminder ? 5 : 0),
           child: SizedBox(
             width: 25.0,
             height: 25.0,
@@ -446,10 +463,57 @@ class MainPagePresenter extends AbsPresenter<MainPage> {
         ),
       ))
     ]),
-    floatingActionButton: _isOperationInProcess || _isDatabaseBeingExportedOrImported ? null : FloatingActionButton(
-      onPressed: () => launchEditPage(null),
-      tooltip: CREATE,
-      child: const Icon(Icons.add),
-    ),
+    floatingActionButton: _isOperationInProcess || _isDatabaseBeingExportedOrImported ? null : SizedBox.expand(child: Stack(
+      alignment: Alignment.bottomRight,
+      children: [
+        Positioned(
+          bottom: 65,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 200),
+            scale: _isFabCollapsed ? 0 : 1,
+            child: _isFabCollapsed ? null : SizedBox(
+              width: 45,
+              height: 45,
+              child: FloatingActionButton(
+                onPressed: () {
+                  setState(() => _isFabCollapsed = true);
+                  launchEditPage(null);
+                },
+                child: const Icon(Icons.text_snippet),
+              ),
+            )
+          ),
+        ),
+        Positioned(
+          right: 65,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 200),
+            scale: _isFabCollapsed ? 0 : 1,
+            child: SizedBox(
+              width: 45,
+              height: 45,
+              child: FloatingActionButton(
+                onPressed: () {
+                  setState(() => _isFabCollapsed = true);
+                  if (!navigator.canPop()) navigator.pushNamed(ROUTE_CANVAS);
+                },
+                child: const Icon(Icons.draw),
+              ),
+            )
+          ),
+        ),
+        InkWell(
+          onLongPress: () => launchEditPage(null),
+          child: FloatingActionButton(
+            onPressed: () => setState(() => _isFabCollapsed = !_isFabCollapsed),
+            child: AnimatedRotation(
+              duration: const Duration(milliseconds: 200),
+              turns: _isFabCollapsed ? 0 : 0.125,
+              child: const Icon(Icons.add)
+            ),
+          ),
+        )
+      ]
+    )),
   );
 }

@@ -24,6 +24,7 @@ class Note {
   final ReminderType? reminderType;
   final NoteColor? color;
   final String? spans;
+  final bool canvas;
 
   static const ID = 'id',
     TITLE = 'title',
@@ -33,6 +34,7 @@ class Note {
     REMINDER_TYPE = 'reminderType',
     COLOR = 'color',
     SPANS = 'spans',
+    CANVAS = 'canvas',
     UNDEF_LONG = -0x100000000; // cuz int will be casted to long by the methodChannel's codec only if a value occupies more than 32 bits
 
   const Note({
@@ -43,7 +45,8 @@ class Note {
     this.editMillis = UNDEF_LONG,
     this.reminderType,
     this.color,
-    this.spans
+    this.spans,
+    this.canvas = false
   });
 
   Note copy({
@@ -55,6 +58,7 @@ class Note {
     ReminderType? reminderType,
     NoteColor? color,
     String? spans,
+    bool? canvas
   }) => Note(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -63,7 +67,8 @@ class Note {
     editMillis: editMillis ?? this.editMillis,
     reminderType: reminderType ?? this.reminderType,
     color: color ?? this.color,
-    spans: spans ?? this.spans
+    spans: spans ?? this.spans,
+    canvas: canvas ?? this.canvas
   );
 
   @override
@@ -78,7 +83,8 @@ class Note {
       editMillis == other.editMillis &&
       reminderType == other.reminderType &&
       color == other.color &&
-      spans == other.spans;
+      spans == other.spans &&
+      canvas == other.canvas;
 
   @override
   int get hashCode =>
@@ -89,7 +95,8 @@ class Note {
     editMillis.hashCode ^
     reminderType.hashCode ^
     color.hashCode ^
-    spans.hashCode;
+    spans.hashCode ^
+    canvas.hashCode;
 
   static Note fromMap(dynamic map) => Note(
     id: map[ID] as int?,
@@ -99,7 +106,8 @@ class Note {
     editMillis: map[EDIT_MILLIS],
     reminderType: ReminderType.create(map[REMINDER_TYPE]),
     color: NoteColor.create(map[COLOR]),
-    spans: map[SPANS] as String?
+    spans: map[SPANS] as String?,
+    canvas: map[CANVAS]
   );
 
   Map<String, dynamic> toMap() {
@@ -112,10 +120,11 @@ class Note {
       EDIT_MILLIS : editMillis,
       REMINDER_TYPE : reminderType?.value,
       COLOR : color?.value,
-      SPANS : spans
+      SPANS : spans,
+      CANVAS : canvas
     };
   }
 
   @override
-  String toString() => '($id, $title, $text, $addMillis, $editMillis, $reminderType, $color)';
+  String toString() => '($id, $title, $text, $addMillis, $editMillis, $reminderType, $color, $spans, $canvas)';
 }

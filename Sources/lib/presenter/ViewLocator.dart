@@ -10,7 +10,7 @@
 import 'package:meta/meta.dart';
 import 'Presenters.dart';
 import '../view/AbsStatefulWidget.dart';
-import '../view/DrawPage.dart';
+import '../view/CanvasPage.dart';
 import '../view/EditPage.dart';
 import '../view/MainPage.dart';
 import '../view/Screen.dart';
@@ -23,6 +23,6 @@ class ViewLocator {
     case Presenters.SCREEN: return Screen(parameter);
     case Presenters.MAIN: return MainPage(parameter);
     case Presenters.EDIT: return EditPage(parameter);
-    case Presenters.DRAW: return DrawPage(parameter);
+    case Presenters.CANVAS: return CanvasPage(parameter);
   } }
 }

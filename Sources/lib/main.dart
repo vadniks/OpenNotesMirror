@@ -12,8 +12,6 @@ import 'model/core/Kernel.dart';
 void main() => Kernel();
 
 /*
-TODO: add canvas notes (ability to draw)
-TODO: add audio notes
 TODO: add database encryption or encrypt each note
 TODO: add tags (mark a note with a tag and search by tag)
 TODO: add qr code generation

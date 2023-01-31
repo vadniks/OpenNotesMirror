@@ -14,6 +14,7 @@ package com.sout.android.notes.mvp.model.db
 import androidx.annotation.WorkerThread
 import androidx.room.*
 import androidx.sqlite.db.SupportSQLiteQuery
+import com.sout.android.notes.mvp.model.BinaryNoteManager
 import com.sout.android.notes.mvp.model.db.*
 
 @WorkerThread
@@ -35,11 +36,11 @@ interface NoteDao { // Thing that I hate the most about Kotlin is that it doesn'
     @Query("select $REMINDER_EXTRA from $DB_NAME where $ID = :$ID")
     suspend fun getReminderExtraById(id: Int): AbsReminderExtra?
 
+    @Query("select $CANVAS from $DB_NAME where $ID = :$ID")
+    suspend fun getCanvasFlagById(id: Int): Boolean
+
     @Query("select * from $DB_NAME where $REMINDER_EXTRA is not null order by $ID asc")
     suspend fun getNotesWithReminders(): List<Note>
-
-    @Query("select $EDIT_MILLIS from $DB_NAME where $ID = :$ID")
-    suspend fun getAddMillis(id: Int): Long
 
     @Query("delete from $DB_NAME where $ID = :$ID")
     suspend fun deleteById(id: Int): Int

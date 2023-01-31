@@ -22,7 +22,9 @@ This application lets saving and editing text notes to keep plain text informati
 It also can be used to create various reminders such as status bar attachment, timed reminder which
 will notify once in a certain time after it's creation, scheduled reminder which is an advanced type
 of the timed reminder - it will notify starting the initial time with the provided time intervals
-until cancelling and widget reminder. Colors are also supported.
+until cancelling and widget reminder. A color can be assigned to any note, it will be also assigned to
+a widget. Canvas notes - images that a user can draw (him/her)self. The app supports two graphical themes
+ - light and dark.
 
 This is a next generation of the my Notes application 
 (https://github.com/vadniks/MyAndroidProjectsPublicMirror/tree/master/Notes2.02%20(Suspended)).
@@ -39,3 +41,18 @@ This is a next generation of the my Notes application
 ![Widgets again](Screenshots/h.png "Widgets again")
 ![Text decorations in the light theme](Screenshots/i.png "Text decorations in the light theme")
 ![Text decorations in the dark theme](Screenshots/j.png "Text decorations in the dark theme")
+![](Screenshots/k.png)
+![Canvas in the light theme](Screenshots/k.png "Canvas in the light theme")
+![Canvas in the dark theme](Screenshots/l.png "Canvas in the dark theme")
+![](Screenshots/m.png "Canvas options menu in the dark theme")
+![](Screenshots/n.png "Canvas options menu in the light theme")
+![](Screenshots/o.png "Text note options in the light theme")
+![](Screenshots/p.png "Text note color options in the light theme")
+![](Screenshots/q.png "Reminder scheduling options in the light theme")
+![](Screenshots/r.png "Text decoration options in the light theme")
+![](Screenshots/s.png "Text decoration color options in the light theme")
+![](Screenshots/t.png "Albom orientation canvas in the dark theme")
+![](Screenshots/u.png "Reminder scheduling options filled in the light theme")
+![](Screenshots/v.png "Reminder scheduling options filled in the dark theme")
+![](Screenshots/w.png "Text note color options in the dark theme")
+![](Screenshots/x.png "Text decoration options in the dark theme")

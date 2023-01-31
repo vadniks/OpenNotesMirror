@@ -21,7 +21,7 @@ import java.io.*
 import kotlin.math.pow
 
 const val DB_NAME = "notes"
-const val ACTUAL_DB_VERSION = 7
+const val ACTUAL_DB_VERSION = 8
 const val ID = "id"
 const val TITLE = "title"
 const val TEXT = "text"
@@ -31,6 +31,7 @@ const val REMINDER_EXTRA = "reminderExtra"
 const val REMINDER_TYPE = "reminderType"
 const val COLOR = "color"
 const val SPANS = "spans"
+const val CANVAS = "canvas"
 
 @Entity(tableName = DB_NAME, indices = [Index(value = [TITLE])])
 data class Note(
@@ -41,7 +42,8 @@ data class Note(
     val editMillis: Long = addMillis,
     val reminderExtra: AbsReminderExtra? = null,
     val color: NoteColor? = null,
-    val spans: String? = null
+    val spans: String? = null,
+    val canvas: Boolean = false
 ) : Serializable { companion object { fun fromMap(map: Map<String, Any?>): Note = Note(
     map[ID] as Int?,
     (map[TITLE] as String?)!!,
@@ -49,7 +51,8 @@ data class Note(
     (map[ADD_MILLIS] as Long?)!!,
     (map[EDIT_MILLIS] as Long?)!!,
     color = NoteColor.values().find(fun(value) = value.value == (map[COLOR] as Long?)?.toInt()),
-    spans = map[SPANS] as String?
+    spans = map[SPANS] as String?,
+    canvas = (map[CANVAS] as Boolean?)!!
 ) } }
 
 fun Note.toMap(): Map<String, Any?> = mapOf(
@@ -60,7 +63,8 @@ fun Note.toMap(): Map<String, Any?> = mapOf(
     EDIT_MILLIS to editMillis,
     REMINDER_TYPE to reminderExtra?.type?.value,
     COLOR to color?.value?.toUInt()?.toLong(),
-    SPANS to spans
+    SPANS to spans,
+    CANVAS to canvas
 )
 
 abstract class AbsReminderExtra(
@@ -100,9 +104,9 @@ enum class NoteColor(@ColorInt val value: Int) { // TODO: add color picker inste
             if (component <= 0.03928) component / 12.92
             else ((component + 0.055) / 1.055).pow(2.4)
 
-        val r = linearize(red.toDouble() / 0xFF)
-        val g = linearize(green.toDouble() / 0xFF)
-        val b = linearize(blue.toDouble() / 0xFF)
+        val r = linearize(red.toDouble() / 0xff)
+        val g = linearize(green.toDouble() / 0xff)
+        val b = linearize(blue.toDouble() / 0xff)
 
         val luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
         return (luminance + 0.05).pow(2) <= 0.15

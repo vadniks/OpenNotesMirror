@@ -7,7 +7,7 @@
 ///
 /// Source codes are opened only for review.
 
-// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: curly_braces_in_flow_control_structures, empty_statements
 
 import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
@@ -57,7 +57,7 @@ abstract class AbsPresenter<V extends AbsPage> extends State<V> {
         children: [
           Text(
             text,
-            style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+            style: TextStyle(color: colorScheme.onBackground),
           ),
           if (actions != null) ...actions
         ]
@@ -68,14 +68,11 @@ abstract class AbsPresenter<V extends AbsPage> extends State<V> {
 
   @protected
   @nonVirtual
-  Divider makeDividerForBottomSheet() => const Divider(
-    height: 1.0,
-    thickness: 1.0
-  );
+  Divider makeDividerForBottomSheet() => const Divider(height: 1.0, thickness: 1.0);
 
   @protected
   @nonVirtual
-  void popTimes(int times) { for (var _ = 0; _ < times; _++) navigator.pop(); }
+  void popTimes(int times) { for (var _ = 0; _ < times; navigator.pop(), _++); }
 
   @protected
   @nonVirtual
@@ -88,4 +85,16 @@ abstract class AbsPresenter<V extends AbsPage> extends State<V> {
   @protected
   @nonVirtual
   Color get textColor => colorScheme.onSurface;
+
+  @protected
+  @nonVirtual
+  void updateState() => setState((){});
+
+  @protected
+  @nonVirtual
+  Object? get arguments => ModalRoute.of(context)!.settings.arguments;
+
+  @protected
+  @nonVirtual
+  Size get screenSize => MediaQuery.of(context).size;
 }

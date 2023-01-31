@@ -19,6 +19,8 @@ import '../../consts.dart';
 class Interop {
   static const _CHANNEL_NAME = '$PACKAGE_NAME/channel';
   static const LAUNCH_EDIT_PAGE = 'launchEditPage';
+  static const SEND_METHOD = 'send';
+  static const _LOG_METHOD = 'log';
   static bool _initialized = false;
   late final MethodChannel _channel;
   final Observable<MethodCall, Future<bool>> _observable = Observable();
@@ -30,6 +32,8 @@ class Interop {
     _channel = const MethodChannel(_CHANNEL_NAME);
     _channel.setMethodCallHandler(_handleKotlinMethod);
   }
+
+  void log(Object? msg) => callKotlinMethod(_LOG_METHOD, msg.toString());
 
   Future<void> _handleKotlinMethod(MethodCall call) async {
     bool result = false;

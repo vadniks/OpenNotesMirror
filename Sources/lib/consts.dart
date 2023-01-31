@@ -14,11 +14,11 @@ const APP_NAME = 'OpenNotes',
   EDIT_PAGE_TITLE = 'Edit note',
   DRAW_PAGE_TITLE = 'Draw note',
   PACKAGE_NAME = 'com.sout.android.notes',
-  VERSION = '3.2.0';
+  VERSION = '3.3.0';
 
 const ROUTE_MAIN = '/',
   ROUTE_EDIT = '/e',
-  ROUTE_DRAW = '/d';
+  ROUTE_CANVAS = '/c';
 
 const ITEMS_FETCH_AMOUNT = 15,
   NUM_UNDEF = -1;
@@ -59,7 +59,7 @@ const SAVE = 'Save',
   DETAILS = 'Details',
   TIMED_OR_SCHEDULED_IS_NOT_SET = 'Timed or scheduled reminder is not set',
   SELECT_NOTE = 'Click on a note to select it',
-  CHOOSE_COLOR = 'Choose color',
+  CHOOSE_NOTE_COLOR = 'Choose note color',
   COLOR_SET = 'Color will be set after note saving/updating',
   CURRENT_COLOR = 'Current color: ',
   SEARCH_BY_TITLE = 'Search by title',
@@ -112,6 +112,13 @@ const SAVE = 'Save',
   IMPORT_FROM_DATABASE = 'Import from database',
   CHANGE_THEME = 'Change theme manually',
   CHANGE_THEME_HINT = 'Only for Android 9 and lower',
+  CURRENT_WIDTH = 'Current width',
+  ERASE_MODE = 'Erase mode',
+  CLEAR_ALL = 'Clear all',
+  OPACITY = 'Opacity',
+  EXPORT_TO_FILE = 'Export to file',
+  CANVAS_FLAG = '<canvas>',
+  CANVAS_CANNOT_BE_IN_WIDGET = 'Canvas note cannot be assigned to widget',
   LOGO_ASCII = '''
    ____                   _   __      __           
   / __ \\____  ___  ____  / | / /___  / /____  _____

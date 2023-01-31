@@ -11,6 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../consts.dart';
 import '../../presenter/AbsPresenter.dart';
 import '../../presenter/Presenters.dart';
 import '../../presenter/ViewLocator.dart';
@@ -29,7 +30,7 @@ class Kernel {
   late final DatabaseManager dbManager;
   late final ReminderManager reminderManager;
   static const _HANDLE_SEND_METHOD = 'handleSend'; // why the f*** there is no private modifier in Dart, is it too hard to implement? Okay I can barely understand why there's no package-private modifier but plain private modifier? JUST WHY!?
-  static const _NOTIFY_DATABASE_EXPORTED_OR_IMPORTED_METHOD = 'notifyDatabaseExportedOrImported';
+  static const _NOTIFY_DATABASE_EXPORTED_OR_IMPORTED_METHOD = 'notifyDatabaseExportedOrImported'; // TODO: move to the DatabaseManager
 
   Kernel() {
     assert(!_initialized);
@@ -42,19 +43,23 @@ class Kernel {
     interop.observeMethodHandling(_handleKotlinMethod, true);
   }
 
-  void setPresenter(AbsPresenter? presenter, Presenters which) {
-    switch (which) {
-      case Presenters.SCREEN: /*ignore*/ break;
-      case Presenters.MAIN: _mainPagePresenter = presenter as MainPagePresenter?; break;
-      case Presenters.EDIT: /*ignore*/ break; // maybe will be used in the future
-      case Presenters.DRAW: /*ignore*/ break; // TODO: rename to canvas
-    }
-  }
+  void setPresenter(AbsPresenter? presenter, Presenters which) { switch (which) {
+    case Presenters.MAIN: _mainPagePresenter = presenter as MainPagePresenter?; break;
+    default: break;
+  } }
 
   void callMainPresenter(void Function(MainPagePresenter) action) =>
     _mainPagePresenter == null
       ? MainPagePresenter.observeMainPageLaunch((presenter) => action(presenter), true)
       : action(_mainPagePresenter!);
+
+  String makeTimeStamp(int added, int edited) =>
+    '$ADDED_AT ${added < 1000
+      ? JUST_NOW
+      : DateTime.fromMillisecondsSinceEpoch(added)}\n'
+    '$EDITED_AT ${edited < 1000
+      ? JUST_NOW
+      : DateTime.fromMillisecondsSinceEpoch(edited)}';
 
   Future<bool> _handleKotlinMethod(MethodCall call) async {
     switch (call.method) {

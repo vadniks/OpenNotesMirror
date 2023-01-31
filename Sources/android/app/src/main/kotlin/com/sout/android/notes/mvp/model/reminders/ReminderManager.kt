@@ -162,7 +162,7 @@ class ReminderManager @UiThread constructor(private val kernel: Kernel) : AbsSin
         pendingIntentFlags()
     )
 
-    fun createReminderExtra(cursor: Cursor): AbsReminderExtra? {
+    fun createLegacyReminderExtra(cursor: Cursor): AbsReminderExtra? {
         val widC = cursor.getColumnIndex("wid")
         val nidC = cursor.getColumnIndex("nid")
         val ridC = cursor.getColumnIndex("rid")

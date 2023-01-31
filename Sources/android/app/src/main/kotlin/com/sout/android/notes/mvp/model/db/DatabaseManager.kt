@@ -26,6 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sout.android.notes.NUM_UNDEF
 import com.sout.android.notes.NUM_UNDEF_L
 import com.sout.android.notes.NUM_ZERO
+import com.sout.android.notes.STR_EMPTY
 import com.sout.android.notes.mvp.model.core.AbsSingleton
 import com.sout.android.notes.mvp.model.core.Kernel
 import io.flutter.plugin.common.MethodCall
@@ -45,12 +46,19 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
 
     suspend fun init() {
         tryToOpenDBOrBackupAndClean()
-        database.complete(NoteDatabase.getDatabase(kernel.context, BaseMigration(OLD_GEN), BaseMigration(NEW_310)))
+        database.complete(NoteDatabase.getDatabase(
+            kernel.context,
+            BaseMigration(OLD_GEN),
+            BaseMigration(NEW_300_310),
+            BaseMigration(NEW_320_321)
+        ))
         delegate.complete(database.await().getDao())
     }
 
+    @Deprecated("database encryption won't be implemented")
     private suspend fun tryToOpenDBOrBackupAndClean() = if (isDBEncrypted()) backupDB() else Unit
 
+    @Deprecated("")
     private fun isDBEncrypted(): Boolean {
         val file = kernel.context.getDatabasePath(DB_NAME)
         if (!file.exists()) return false
@@ -70,6 +78,7 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
             true
     }
 
+    @Deprecated("")
     @Suppress("RedundantSuspendModifier")
     private suspend fun backupDB() {
         val db = kernel.context.getDatabasePath(DB_NAME)
@@ -171,13 +180,11 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
         return id
     }
 
-    suspend fun updateNote(note: Note): Int {
+    suspend fun updateNote(note: Note): Int { // TODO: add favorites as a separate tab (tab with a whole list and a tab with favorites)
         var rows = 0
-        val delegate2 = delegate.await()
 
-        assert(note.id != null && delegate2.updateNote(note.copy(
-            addMillis = delegate2.getAddMillis(note.id),
-            editMillis = currentTimeMillis())
+        assert(note.id != null && delegate.await().updateNote(
+            note.copy(editMillis = currentTimeMillis())
         ).also { rows = it } != NUM_ZERO)
 
         notifyDBModified()
@@ -185,15 +192,28 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
     }
 
     private suspend fun deleteNote(note: Note): Int {
+        assert(!note.canvas)
         var rows = 0
         assert(note.id != null && delegate.await().deleteNote(note).also { rows = it } != NUM_ZERO)
         notifyDBModified()
         return rows
     }
 
-    suspend fun deleteMultiple(ids: List<Int>) = ids.forEach {
-        assert(delegate.await().deleteById(it) == 1)
-    }.also { notifyDBModified() }
+    suspend fun deleteById(id: Int): Int = delegate.await().deleteById(id).also {
+        assert(it != NUM_ZERO)
+        notifyDBModified()
+    }
+
+    suspend fun deleteMultiple(ids: List<Int>) {
+        val delegate2 = delegate.await()
+        for (id in ids) {
+            if (!delegate2.getCanvasFlagById(id))
+                assert(delegate2.deleteById(id) == 1)
+            else
+                kernel.binaryNoteManager.delete(Note(id, STR_EMPTY, STR_EMPTY, NUM_UNDEF_L, canvas = true))
+        }
+        notifyDBModified()
+    }
 
     private fun notifyDBModified() = kernel.interop.callDartMethod(ON_DB_MODIFIED_METHOD, null)
 
@@ -225,12 +245,12 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
         uri: Uri,
         contentResolver: ContentResolver,
         @WorkerThread callback: (Boolean) -> Unit
-    ) { try {
+    ) {
         val bytesWritten = contentResolver.openOutputStream(uri, "w")?.use { out ->
             FileInputStream(kernel.context.getDatabasePath(DB_NAME)).use { it.copyTo(out) }
         }
-        callback(bytesWritten != 0L)
-    } catch (_: Exception) { callback(false) } }
+        callback(bytesWritten != null && bytesWritten > 0L)
+    }
 
     @WorkerThread
     suspend fun copyDatabaseContentFromExternal(
@@ -301,7 +321,7 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
                      )) while (cursor.moveToNext())
                  }
             } } catch (_: Exception) { callback(false) }
-            file.delete()
+            if (file.exists()) file.delete()
         }
         callback(descriptor != null)
     }
@@ -314,12 +334,15 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
     private inner class BaseMigration(private val fromVersion: Int)
         : Migration(fromVersion, ACTUAL_DB_VERSION)
     { override fun migrate(database: SupportSQLiteDatabase) {
-        database.query(
-            """select $ID, $TITLE, $TEXT 
-                ${if (fromVersion == NEW_310) ", $REMINDER_EXTRA, $COLOR" else ""} 
-                from $DB_NAME
-            """.trimIndent()
-        ).use { cursor ->
+
+        val builder = StringBuilder().apply {
+            append("select $ID, $TITLE, $TEXT")
+            if (fromVersion >= NEW_300_310) append(", $REMINDER_EXTRA, $COLOR")
+            if (fromVersion == NEW_320_321) append(", $SPANS")
+            append(" from $DB_NAME")
+        }
+
+        database.query(builder.toString()).use { cursor ->
             val count = cursor.count
             val notes = ArrayList<Note>(count)
             val converters = NoteConverters()
@@ -329,10 +352,12 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
             val text = cursor.getColumnIndex(TEXT)
             val remExtra = cursor.getColumnIndex(REMINDER_EXTRA)
             val color = cursor.getColumnIndex(COLOR)
+            val spans = cursor.getColumnIndex(SPANS)
 
             if (!cursor.moveToFirst() && count > 0) throw IllegalStateException()
             assert(id != NUM_UNDEF && title != NUM_UNDEF && text != NUM_UNDEF)
-            if (fromVersion == NEW_310) assert(remExtra != NUM_UNDEF && color != NUM_UNDEF)
+            if (fromVersion >= NEW_300_310) assert(remExtra != NUM_UNDEF && color != NUM_UNDEF)
+            if (fromVersion == NEW_320_321) assert(spans != NUM_UNDEF)
 
             if (count > 0) do notes.add(Note(
                 cursor.getInt(id),
@@ -340,13 +365,14 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
                 cursor.getString(text),
                 currentTimeMillis(),
                 currentTimeMillis(),
-                if (fromVersion == OLD_GEN) kernel.reminderManager.createReminderExtra(cursor)
+                if (fromVersion == OLD_GEN) kernel.reminderManager.createLegacyReminderExtra(cursor)
                 else converters.bytesToAbsReminderExtra(cursor.getBlob(remExtra)),
                 if (fromVersion == OLD_GEN) null else NoteColor.values().find { it.name == cursor.getString(color) },
-                null
+                if (fromVersion == NEW_320_321) cursor.getString(spans) else null,
+                false
             )) while (cursor.moveToNext())
 
-            database.execSQL("drop table $DB_NAME")
+            database.execSQL("drop table `$DB_NAME`")
             database.execSQL("""create table `$DB_NAME` (
                 `$ID` integer primary key autoincrement,
                 `$TITLE` text not null,
@@ -355,11 +381,10 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
                 `$EDIT_MILLIS` integer not null,
                 `$REMINDER_EXTRA` blob,
                 `$COLOR` text,
-                `$SPANS` text
+                `$SPANS` text,
+                `$CANVAS` integer not null
             )""".trimIndent())
-            database.execSQL("""
-                create index `index_${DB_NAME}_$TITLE` on `$DB_NAME` (`$TITLE`)
-            """.trimIndent())
+            database.execSQL("create index `index_${DB_NAME}_$TITLE` on `$DB_NAME` (`$TITLE`)")
 
             notes.forEach { database.insert(DB_NAME, SQLiteDatabase.CONFLICT_FAIL, ContentValues().apply {
                 put(ID, it.id)
@@ -370,6 +395,7 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
                 put(REMINDER_EXTRA, converters.absReminderExtraToBytes(it.reminderExtra))
                 put(COLOR, it.color?.name)
                 put(SPANS, it.spans)
+                put(CANVAS, if (!it.canvas) 0 else 1)
             }) }
         }
     } }
@@ -387,7 +413,8 @@ class DatabaseManager @UiThread constructor(private val kernel: Kernel) : AbsSin
         private const val GET_SORT_MODE_METHOD = "getSortMode"
         private const val BACKUP_NOTATION = ".backup"
         private const val SORT_MODE_PREF = "sortMode"
-        private const val OLD_GEN = 5
-        private const val NEW_310 = 6
+        private const val OLD_GEN = 5 // 19 300, 20 310, 21 320, 22 321, 23 330
+        private const val NEW_300_310 = 6
+        private const val NEW_320_321 = 7
     }
 }

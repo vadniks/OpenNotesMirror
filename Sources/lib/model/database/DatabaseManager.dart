@@ -17,7 +17,7 @@ import '../tuples.dart';
 import 'Note.dart';
 
 @sealed
-class DatabaseManager {
+class DatabaseManager { // TODO: move all method calls related to DB interaction from presenters here
   static const _FETCH_NOTES_METHOD = 'fetchNotes';
   static const _INSERT_NOTE_METHOD = 'insertNote';
   static const _UPDATE_NOTE_METHOD = 'updateNote';
@@ -84,7 +84,7 @@ class DatabaseManager {
 
   Future<List<Note>> searchByTitle(String title) async => (
     await _kernel.interop
-    .callKotlinMethod(_SEARCH_BY_TITLE_METHOD, title) as List<dynamic>
+      .callKotlinMethod(_SEARCH_BY_TITLE_METHOD, title) as List<dynamic>
   ).map(Note.fromMap).toList(growable: false);
 
   Future<void> deleteSelected(List<int> ids) async =>

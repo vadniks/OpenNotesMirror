@@ -34,10 +34,11 @@ import io.flutter.plugin.common.MethodChannel
 @UiThread
 class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Injectable {
     override lateinit var kernel: Kernel
-    var isActivityRunning = true; private set
+    var isActivityRunning = true; private set // TODO: replace with Kernel's method that returns true when presenter's Deferred is completed and false otherwise
     private val activity get() = activityGetter()
     private var onPermissionRequestResponded: ((BooleanArray) -> Unit)? = null
     private var currentNote: Note? = null
+    private var exportingCanvasId: Int? = null
 
     private val dartMethodHandler: suspend (Pair<MethodCall, MethodChannel.Result>) -> Boolean
     = { it -> handleDartMethod(it.first, it.second) }
@@ -54,8 +55,20 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
     ): Boolean = when (call.method) {
         SEND_METHOD -> {
             assert(kernel.activityPresenter.isCompleted)
-            val arguments = call.arguments as List<String>
-            send(arguments[0], arguments[1])
+            val arguments = call.arguments as List<Any?>
+
+            val title = (arguments[0] as String?)!!
+            val text = arguments[1] as String?
+            val binaryId = arguments[2] as Int?
+
+            val isTextPresent = text != null
+            val isBinaryPresent = binaryId != null
+            assert(isTextPresent xor isBinaryPresent)
+
+            if (isTextPresent) sendText(title, text!!)
+            else if (isBinaryPresent) queryCanvasExport(binaryId!!, title)
+            else throw IllegalArgumentException()
+
             result.success(null)
             true
         }
@@ -103,7 +116,7 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
 
     private fun changeTheme() = if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) null
     else kernel.sharedPrefs.getBoolean(PREF_IS_DARK, false).let {
-        kernel.sharedPrefs.edit().putBoolean(PREF_IS_DARK, !it).apply() // can be asynchronous
+        kernel.sharedPrefs.edit().putBoolean(PREF_IS_DARK, !it).apply()
         kernel.interop.callDartMethod(ON_THEME_CHANGED_METHOD, !it)
     }
 
@@ -174,7 +187,16 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
         REQUEST_DATABASE_SELECTION_CODE
     )
 
-    private fun send(title: String, text: String) = activity.startActivity(Intent.createChooser(Intent().apply {
+    private fun queryCanvasExport(id: Int, title: String) = activity.startActivityForResult(
+        Intent.createChooser(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = CANVAS_MIME
+            putExtra(Intent.EXTRA_TITLE, title + CANVAS_EXTENSION)
+        }, null),
+        REQUEST_CANVAS_EXPORT_CODE
+    ).also { exportingCanvasId = id }
+
+    private fun sendText(title: String, text: String) = activity.startActivity(Intent.createChooser(Intent().apply {
         action = Intent.ACTION_SEND
         putExtra(Intent.EXTRA_TITLE, title)
         putExtra(Intent.EXTRA_TEXT, text)
@@ -204,6 +226,7 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         tryExportDatabase(requestCode, resultCode, data)
         tryImportFromDatabase(requestCode, resultCode, data)
+        tryExportCanvas(requestCode, resultCode, data)
     }
 
     private fun checkActivityResult(resultCode: Int, data: Intent?) =
@@ -240,6 +263,20 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
         }
     }
 
+    private fun tryExportCanvas(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode != REQUEST_CANVAS_EXPORT_CODE) return
+        if (!checkActivityResult(resultCode, data)) return
+
+        kernel.launchInBackground { if (exportingCanvasId != null) {
+            kernel.binaryNoteManager.export(
+                exportingCanvasId!!,
+                data!!.data!!,
+                activity.contentResolver
+            )
+            exportingCanvasId = null
+        } }
+    }
+
     companion object {
         private const val SEND_METHOD = "send"
         private const val HANDLE_SEND_METHOD = "handleSend"
@@ -254,6 +291,8 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
         private const val IS_DARK_THEME_METHOD = "isDarkTheme"
         private const val DATABASE_MIME = "application/octet-stream" // "application/vnd.sqlite3" // some file pickers wrongly identify vendor mime type and set mime to plain binary
         private const val DATABASE_NAME = "notes.sqlite3"
+        private const val CANVAS_MIME = "image/png"
+        private const val CANVAS_EXTENSION = ".png"
         private const val CREATE_FILE_FOR_EXPORTING = "Create file in which the database content will be written"
         private const val SELECT_FILE_FOR_IMPORTING = "Select database file"
         private const val CURRENT_NOTE = "currentNote"
@@ -263,6 +302,7 @@ class ActivityPresenter(private val activityGetter: () -> Activity) : Kernel.Inj
         private const val REQUEST_PERMISSIONS_CODE = 0
         private const val REQUEST_DATABASE_CREATION_CODE = 1
         private const val REQUEST_DATABASE_SELECTION_CODE = 2
+        private const val REQUEST_CANVAS_EXPORT_CODE = 3
         private const val PREF_IS_DARK = "isDark"
 
         fun init(activity: Activity) = ActivityPresenter { activity }

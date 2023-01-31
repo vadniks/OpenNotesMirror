@@ -11,6 +11,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../model/core/Interop.dart';
 import 'spannableTextEditingController.dart';
 import '../model/database/NoteColor.dart';
 import 'Presenters.dart';
@@ -27,7 +28,6 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
   late SpannableTextEditingController _textController;
   Note? _noteParameter;
   NoteColor? _color;
-  static const _SEND_METHOD = 'send';
   static const _SAVE_STATE_METHOD = 'saveState';
   static const _RESET_STATE_METHOD = 'resetState';
   var _chosenTriggerDate = DateTime.fromMillisecondsSinceEpoch(0);
@@ -359,7 +359,7 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
           onTap: _removeReminder,
         ),
         ListTile(
-          title: const Text(CHOOSE_COLOR),
+          title: const Text(CHOOSE_NOTE_COLOR),
           onTap: _chooseColor,
         ),
         ListTile(
@@ -448,22 +448,14 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
 
   void _showTimestamp() {
     navigator.pop();
-
-    final added = _noteParameter!.addMillis,
-      edited = _noteParameter!.editMillis;
-
-    showSnackBar(
-      '$ADDED_AT ${added < 1000
-        ? JUST_NOW
-        : DateTime.fromMillisecondsSinceEpoch(added)}\n'
-      '$EDITED_AT ${edited < 1000
-        ? JUST_NOW
-        : DateTime.fromMillisecondsSinceEpoch(edited)}'
-    );
+    showSnackBar(kernel.makeTimeStamp(
+      _noteParameter?.addMillis ?? 0,
+      _noteParameter?.editMillis ?? 0
+    ));
   }
 
   Future<void> _send() async => kernel.interop.callKotlinMethod(
-    _SEND_METHOD, [_title, _text]
+    Interop.SEND_METHOD, [_title, _text, null]
   );
 
   NoteColor? _getColor() => _color == null
@@ -524,10 +516,10 @@ class EditPagePresenter extends AbsPresenter<EditPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final arguments = ModalRoute.of(context)!.settings.arguments;
+    final arguments = super.arguments;
 
     if ((arguments is! Note?) && (arguments is! List<String>))
-      throw ArgumentError(EMPTY_STRING);
+      throw ArgumentError();
 
     kernel.reminderManager
       .canPostNotifications()

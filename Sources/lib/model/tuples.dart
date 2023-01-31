@@ -9,6 +9,12 @@
 
 import 'package:meta/meta.dart';
 
+@sealed
+class Reference<T> {
+  T value;
+  Reference(this.value);
+}
+
 @immutable
 @sealed
 class Pair<A, B> {

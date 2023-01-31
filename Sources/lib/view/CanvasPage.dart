@@ -1,4 +1,4 @@
-/// Created by VadNiks on Aug 02 2022
+/// Created by VadNiks on Jul 31 2022
 /// Copyright (C) 2018-2023 Vad Nik (https://github.com/vadniks).
 ///
 /// This is an open-source project, the repository is located at https://github.com/vadniks/OpenNotesMirror.
@@ -7,19 +7,17 @@
 ///
 /// Source codes are opened only for review.
 
+// ignore_for_file: no_logic_in_create_state, use_key_in_widget_constructors
+
 import 'package:flutter/material.dart';
-import 'Presenters.dart';
-import '../view/DrawPage.dart';
-import 'AbsPresenter.dart';
 import 'package:meta/meta.dart';
+import 'AbsStatefulWidget.dart';
+import '../presenter/CanvasPagePresenter.dart';
 
 @sealed
-class DrawPagePresenter extends AbsPresenter<DrawPage> { // TODO: rename to CanvasPage...
-  DrawPagePresenter(Object kernel) : super(kernel, Presenters.DRAW);
+class CanvasPage extends AbsPage {
+  const CanvasPage(super.parameter);
 
   @override
-  Widget build(BuildContext context) {
-    // TODO: implement build
-    throw UnimplementedError();
-  }
+  State<StatefulWidget> createState() => CanvasPagePresenter(parameter);
 }

@@ -97,7 +97,7 @@ class ScreenPresenter extends AbsPresenter<Screen> {
     routes: {
       ROUTE_MAIN : (context) => ViewLocator.createView(kernel, Presenters.MAIN),
       ROUTE_EDIT : (context) => ViewLocator.createView(kernel, Presenters.EDIT),
-      ROUTE_DRAW : (context) => ViewLocator.createView(kernel, Presenters.DRAW)
+      ROUTE_CANVAS : (context) => ViewLocator.createView(kernel, Presenters.CANVAS)
     },
   );
 }

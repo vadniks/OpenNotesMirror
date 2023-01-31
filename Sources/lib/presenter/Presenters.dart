@@ -13,5 +13,5 @@ enum Presenters {
   SCREEN,
   MAIN,
   EDIT,
-  DRAW;
+  CANVAS;
 }
